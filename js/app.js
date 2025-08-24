@@ -21,12 +21,14 @@ class CordovaAppGeneratorApp {
             this.templatesManager = new AppTemplatesManager();
             this.generator = new CordovaAppGenerator();
             this.github = new GitHubIntegration();
+            this.codemagic = new CodemagicIntegration();
             this.cordovaBuilder = new CordovaBuildPreparation();
 
             // Make core modules globally available before UI initialization
             window.templatesManager = this.templatesManager;
             window.generator = this.generator;
             window.github = this.github;
+            window.codemagic = this.codemagic;
             window.cordovaBuilder = this.cordovaBuilder;
             window.app = this;
 
@@ -72,6 +74,14 @@ class CordovaAppGeneratorApp {
         this.github.on('repo:create:error', this.onRepoCreateError.bind(this));
         this.github.on('repo:push:success', this.onRepoPushSuccess.bind(this));
         this.github.on('repo:push:error', this.onRepoPushError.bind(this));
+
+        // Codemagic events
+        this.codemagic.on('auth:success', this.onCodemagicAuthSuccess.bind(this));
+        this.codemagic.on('auth:error', this.onCodemagicAuthError.bind(this));
+        this.codemagic.on('app:create:success', this.onCodemagicAppCreateSuccess.bind(this));
+        this.codemagic.on('app:create:error', this.onCodemagicAppCreateError.bind(this));
+        this.codemagic.on('build:trigger:success', this.onCodemagicBuildTriggerSuccess.bind(this));
+        this.codemagic.on('build:trigger:error', this.onCodemagicBuildTriggerError.bind(this));
 
         // Cordova Builder events
         this.cordovaBuilder.on('build:start', this.onBuildStart.bind(this));
@@ -148,11 +158,18 @@ class CordovaAppGeneratorApp {
             // Create GitHub repositories and push code
             const githubResults = await this.github.createAndPushApps(results.results);
 
+            // Codemagic integration if enabled
+            let codemagicResults = null;
+            if (formData.enableCodemagicIntegration) {
+                codemagicResults = await this.integrateWithCodemagic(githubResults, formData);
+            }
+
             // Store results
             this.generationResults = {
                 ...results,
                 githubResults,
-                buildResults
+                buildResults,
+                codemagicResults
             };
 
             // Show results
@@ -261,13 +278,15 @@ class CordovaAppGeneratorApp {
         const resultsGrid = document.getElementById('resultsGrid');
         if (!resultsGrid || !this.generationResults) return;
 
-        const { results, githubResults } = this.generationResults;
+        const { results, githubResults, codemagicResults } = this.generationResults;
         
         resultsGrid.innerHTML = results.map((result, index) => {
             const githubResult = githubResults[index];
+            const codemagicResult = codemagicResults?.[index];
             const buildResult = result.buildReady;
             const isSuccess = result.success && githubResult?.success;
             const isBuildReady = buildResult && buildResult.success;
+            const isCodemagicReady = codemagicResult && codemagicResult.success;
 
             return `
                 <div class="result-card ${isSuccess ? 'success' : 'error'}">
@@ -277,6 +296,7 @@ class CordovaAppGeneratorApp {
                             <h4>${result.template.displayName}</h4>
                             <p>${isSuccess ? 'Generated and pushed successfully' : 'Generation failed'}</p>
                             ${isBuildReady ? '<span class="build-ready-badge">🏗️ Build Ready</span>' : ''}
+                            ${isCodemagicReady ? '<span class="codemagic-ready-badge">🚀 Codemagic Ready</span>' : ''}
                         </div>
                     </div>
                     ${isSuccess ? `
@@ -286,11 +306,18 @@ class CordovaAppGeneratorApp {
                             <p><strong>Plugins:</strong> ${result.template.plugins.length}</p>
                             ${isBuildReady ? '<p><strong>Cordova Structure:</strong> ✅ Ready for building</p>' : ''}
                             ${isBuildReady ? '<p><strong>Codemagic CI/CD:</strong> ✅ Configured</p>' : ''}
+                            ${isCodemagicReady ? `<p><strong>Codemagic App:</strong> ✅ <a href="https://codemagic.io/app/${codemagicResult.application.id}" target="_blank">View Project</a></p>` : ''}
+                            ${isCodemagicReady && codemagicResult.build ? `<p><strong>Build Status:</strong> 🔄 <a href="${codemagicResult.build.buildUrl}" target="_blank">View Build</a></p>` : ''}
                         </div>
                         <div class="result-actions">
                             <a href="${githubResult.repository.htmlUrl}" target="_blank" class="btn btn-sm btn-primary">
                                 <i class="fab fa-github"></i> View on GitHub
                             </a>
+                            ${isCodemagicReady ? `
+                                <a href="https://codemagic.io/app/${codemagicResult.application.id}" target="_blank" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-rocket"></i> Codemagic
+                                </a>
+                            ` : ''}
                             ${isBuildReady ? `
                                 <button class="btn btn-sm btn-success" onclick="app.showBuildInstructions('${result.template.id}')">
                                     <i class="fas fa-hammer"></i> Build Instructions
@@ -411,6 +438,104 @@ class CordovaAppGeneratorApp {
 
     onRepoPushError(data) {
         this.addLogEntry(`✗ Failed to push code: ${data.error.message}`, 'error');
+    }
+
+    // Codemagic integration workflow
+    async integrateWithCodemagic(githubResults, formData) {
+        try {
+            this.addLogEntry('🚀 Starting Codemagic.io integration...', 'info');
+
+            // Authenticate with Codemagic
+            await this.authenticateCodemagic(formData.codemagicApiToken, formData.codemagicTeamId);
+
+            const codemagicResults = [];
+
+            for (const githubResult of githubResults) {
+                if (!githubResult.success) {
+                    codemagicResults.push({
+                        success: false,
+                        error: 'GitHub repository creation failed',
+                        appName: githubResult.appName
+                    });
+                    continue;
+                }
+
+                try {
+                    // Create Codemagic application
+                    const application = await this.codemagic.createApplication(
+                        githubResult.repository.cloneUrl,
+                        { appName: githubResult.appName }
+                    );
+
+                    // Trigger initial build
+                    const build = await this.codemagic.triggerBuild(
+                        application.id,
+                        formData.codemagicWorkflowId || 'cordova_android_build',
+                        formData.codemagicBranch || 'main'
+                    );
+
+                    codemagicResults.push({
+                        success: true,
+                        appName: githubResult.appName,
+                        application,
+                        build,
+                        timestamp: new Date().toISOString()
+                    });
+
+                } catch (error) {
+                    codemagicResults.push({
+                        success: false,
+                        error: error.message,
+                        appName: githubResult.appName,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            }
+
+            this.addLogEntry(`✓ Codemagic integration completed for ${codemagicResults.filter(r => r.success).length}/${codemagicResults.length} apps`, 'success');
+            return codemagicResults;
+
+        } catch (error) {
+            this.addLogEntry(`✗ Codemagic integration failed: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    // Authenticate with Codemagic
+    async authenticateCodemagic(apiToken, teamId) {
+        if (!apiToken || !apiToken.trim()) {
+            throw new Error('Codemagic API token is required');
+        }
+
+        this.addLogEntry('Authenticating with Codemagic.io...', 'info');
+        await this.codemagic.authenticate(apiToken.trim(), teamId?.trim() || null);
+        this.addLogEntry('✓ Codemagic authentication successful', 'success');
+    }
+
+    // Codemagic event handlers
+    onCodemagicAuthSuccess(data) {
+        this.addLogEntry(`✓ Codemagic authenticated (${data.appsCount} existing apps)`, 'success');
+    }
+
+    onCodemagicAuthError(data) {
+        this.addLogEntry(`✗ Codemagic authentication failed: ${data.error.message}`, 'error');
+    }
+
+    onCodemagicAppCreateSuccess(data) {
+        const status = data.created ? 'created' : 'found existing';
+        this.addLogEntry(`✓ Codemagic app ${status}: ${data.application.appName}`, 'success');
+    }
+
+    onCodemagicAppCreateError(data) {
+        this.addLogEntry(`✗ Failed to create Codemagic app ${data.appConfig.appName}: ${data.error.message}`, 'error');
+    }
+
+    onCodemagicBuildTriggerSuccess(data) {
+        this.addLogEntry(`✓ Build triggered for workflow ${data.build.workflowId} (Build ID: ${data.build.buildId})`, 'success');
+    }
+
+    onCodemagicBuildTriggerError(data) {
+        this.addLogEntry(`✗ Failed to trigger build: ${data.error.message}`, 'error');
     }
 
     // Cordova Builder event handlers

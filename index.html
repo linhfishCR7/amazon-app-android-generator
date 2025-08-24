@@ -66,6 +66,60 @@
                             </small>
                         </div>
                     </div>
+
+                    <!-- Codemagic Integration Section -->
+                    <div class="form-section">
+                        <h3 style="color: #667eea; margin-bottom: 1rem; display: flex; align-items: center;">
+                            <i class="fas fa-rocket" style="margin-right: 0.5rem;"></i>
+                            Codemagic.io Integration (Optional)
+                        </h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="enableCodemagicIntegration">
+                                    <input type="checkbox" id="enableCodemagicIntegration" style="margin-right: 0.5rem;">
+                                    Enable Codemagic.io Integration
+                                </label>
+                                <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                                    Automatically create Codemagic projects and trigger builds after GitHub push
+                                </small>
+                            </div>
+                        </div>
+                        <div id="codemagicFields" style="display: none;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="codemagicApiToken">Codemagic API Token</label>
+                                    <input type="password" id="codemagicApiToken" placeholder="Your Codemagic API token">
+                                    <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                                        <a href="https://codemagic.io/teams" target="_blank" style="color: #4A90E2;">Get API token</a> from Teams > Personal Account > Integrations > Codemagic API
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="codemagicTeamId">Team ID (Optional)</label>
+                                    <input type="text" id="codemagicTeamId" placeholder="Leave blank for personal account">
+                                    <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                                        Only required if adding apps to a specific team
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="codemagicWorkflowId">Workflow ID</label>
+                                    <input type="text" id="codemagicWorkflowId" value="cordova_android_build" placeholder="cordova_android_build">
+                                    <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                                        Must match the workflow ID in your codemagic.yaml file
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="codemagicBranch">Build Branch</label>
+                                    <input type="text" id="codemagicBranch" value="main" placeholder="main">
+                                    <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                                        Git branch to build (usually 'main' or 'master')
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="packagePrefix">Package Prefix</label>
@@ -370,6 +424,7 @@
     <script src="js/templates.js"></script>
     <script src="js/generator.js"></script>
     <script src="js/github.js"></script>
+    <script src="js/codemagic.js"></script>
     <script src="js/cordova-builder.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>

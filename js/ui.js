@@ -50,6 +50,9 @@ class UIManager {
 
         // Form validation
         this.setupFormValidation();
+
+        // Codemagic integration toggle
+        this.setupCodemagicIntegration();
     }
 
     // Initialize modals
@@ -568,6 +571,26 @@ class UIManager {
         });
     }
 
+    // Setup Codemagic integration toggle
+    setupCodemagicIntegration() {
+        const checkbox = document.getElementById('enableCodemagicIntegration');
+        const fieldsContainer = document.getElementById('codemagicFields');
+
+        if (checkbox && fieldsContainer) {
+            checkbox.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    fieldsContainer.style.display = 'block';
+                    // Make Codemagic fields required when enabled
+                    document.getElementById('codemagicApiToken').setAttribute('required', 'required');
+                } else {
+                    fieldsContainer.style.display = 'none';
+                    // Remove required attribute when disabled
+                    document.getElementById('codemagicApiToken').removeAttribute('required');
+                }
+            });
+        }
+    }
+
     // Validate field
     validateField(e) {
         const field = e.target;
@@ -754,7 +777,13 @@ class UIManager {
             androidMinSdk: document.getElementById('androidMinSdk').value,
             codemagicConfig: document.getElementById('codemagicConfig').value,
             enableBuildPreparation: document.getElementById('enableBuildPreparation').checked,
-            enableGitInit: document.getElementById('enableGitInit').checked
+            enableGitInit: document.getElementById('enableGitInit').checked,
+            // Codemagic integration fields
+            enableCodemagicIntegration: document.getElementById('enableCodemagicIntegration').checked,
+            codemagicApiToken: document.getElementById('codemagicApiToken').value,
+            codemagicTeamId: document.getElementById('codemagicTeamId').value,
+            codemagicWorkflowId: document.getElementById('codemagicWorkflowId').value,
+            codemagicBranch: document.getElementById('codemagicBranch').value
         };
     }
 }

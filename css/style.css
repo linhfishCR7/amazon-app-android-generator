@@ -733,6 +733,18 @@ section {
     box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
 
+.codemagic-ready-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 1rem;
+    margin-left: 0.5rem;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+}
+
 .result-card {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
