@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cordova App Generator - Create Multiple Mobile Apps</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>Cordova App Generator</h1>
+                        <p>Create Multiple Mobile Apps Instantly</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-outline" id="loadConfigBtn">
+                        <i class="fas fa-upload"></i>
+                        Load Config
+                    </button>
+                    <button class="btn btn-outline" id="saveConfigBtn">
+                        <i class="fas fa-download"></i>
+                        Save Config
+                    </button>
+                    <button class="btn btn-primary" id="generateAllBtn">
+                        <i class="fas fa-rocket"></i>
+                        Generate All Apps
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Configuration Panel -->
+            <section class="config-panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-cog"></i> Global Configuration</h2>
+                    <button class="btn btn-sm btn-secondary" id="resetConfigBtn">
+                        <i class="fas fa-undo"></i>
+                        Reset
+                    </button>
+                </div>
+                <div class="config-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="githubUsername">GitHub Username</label>
+                            <input type="text" id="githubUsername" value="linhfishCR7" placeholder="your-github-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="githubToken">GitHub Personal Access Token</label>
+                            <input type="password" id="githubToken" value="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" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" required>
+                            <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                                <a href="https://github.com/settings/tokens" target="_blank" style="color: #4A90E2;">Create token</a> with 'repo' or 'public_repo' scope
+                            </small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="packagePrefix">Package Prefix</label>
+                            <input type="text" id="packagePrefix" value="com.lehau" placeholder="com.yourname" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="authorName">Author Name</label>
+                            <input type="text" id="authorName" value="LinhFish Development Team" placeholder="Your Name">
+                        </div>
+                        <div class="form-group">
+                            <label for="authorEmail">Author Email</label>
+                            <input type="email" id="authorEmail" value="dev@linhfish.com" placeholder="your@email.com">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="outputDirectory">Output Directory</label>
+                            <input type="text" id="outputDirectory" value="./generated-apps" placeholder="./output-directory">
+                        </div>
+                        <div class="form-group">
+                            <label for="androidMinSdk">Android Min SDK</label>
+                            <select id="androidMinSdk">
+                                <option value="22">API 22 (Android 5.1)</option>
+                                <option value="23">API 23 (Android 6.0)</option>
+                                <option value="24">API 24 (Android 7.0)</option>
+                                <option value="26">API 26 (Android 8.0)</option>
+                                <option value="28">API 28 (Android 9.0)</option>
+                                <option value="29">API 29 (Android 10)</option>
+                                <option value="30">API 30 (Android 11)</option>
+                                <option value="31">API 31 (Android 12)</option>
+                                <option value="33" selected>API 33 (Android 13)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label for="codemagicConfig">Codemagic CI/CD Configuration</label>
+                            <textarea id="codemagicConfig" rows="12" placeholder="Enter custom codemagic.yaml content or leave blank for default configuration">workflows:
+  cordova_android_build:
+    name: Build Cordova Android App
+    max_build_duration: 60
+    environment: {}
+    scripts:
+      - name: Install Node.js & Cordova
+        script: |
+          curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+          apt-get install -y nodejs
+          npm install -g cordova
+      - name: Install project dependencies
+        script: |
+          npm install
+      - name: Add Android platform & build release
+        script: |
+          cordova platform add android
+          cordova build android --release
+    artifacts:
+      - platforms/android/app/build/outputs/bundle/release/app-release.aab</textarea>
+                            <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                                This configuration will be saved as codemagic.yaml in each generated project for CI/CD builds
+                            </small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="enableBuildPreparation" checked>
+                                Enable Cordova Build Preparation
+                            </label>
+                            <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                                Creates proper Cordova project structure ready for building
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="enableGitInit" checked>
+                                Initialize Git Repository
+                            </label>
+                            <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                                Automatically initialize git and create initial commit
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- App Templates Section -->
+            <section class="templates-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-th-large"></i> App Templates</h2>
+                    <div class="template-actions">
+                        <button class="btn btn-sm btn-secondary" id="selectAllBtn">
+                            <i class="fas fa-check-double"></i>
+                            Select All
+                        </button>
+                        <button class="btn btn-sm btn-secondary" id="deselectAllBtn">
+                            <i class="fas fa-times"></i>
+                            Deselect All
+                        </button>
+                        <button class="btn btn-sm btn-primary" id="addCustomTemplateBtn">
+                            <i class="fas fa-plus"></i>
+                            Add Custom
+                        </button>
+                    </div>
+                </div>
+                <div class="templates-grid" id="templatesGrid">
+                    <!-- Templates will be populated by JavaScript -->
+                </div>
+            </section>
+
+            <!-- Selected Apps Preview -->
+            <section class="preview-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-eye"></i> Selected Apps Preview</h2>
+                    <div class="preview-stats">
+                        <span class="stat">
+                            <i class="fas fa-mobile-alt"></i>
+                            <span id="selectedCount">0</span> Apps Selected
+                        </span>
+                        <span class="stat">
+                            <i class="fas fa-clock"></i>
+                            Est. Time: <span id="estimatedTime">0 min</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="preview-list" id="previewList">
+                    <div class="empty-state">
+                        <i class="fas fa-mobile-alt"></i>
+                        <h3>No Apps Selected</h3>
+                        <p>Select app templates above to see preview here</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Generation Progress -->
+            <section class="progress-section" id="progressSection" style="display: none;">
+                <div class="section-header">
+                    <h2><i class="fas fa-cogs"></i> Generation Progress</h2>
+                    <button class="btn btn-sm btn-secondary" id="cancelGenerationBtn">
+                        <i class="fas fa-stop"></i>
+                        Cancel
+                    </button>
+                </div>
+                <div class="progress-container">
+                    <div class="overall-progress">
+                        <div class="progress-info">
+                            <span class="progress-label">Overall Progress</span>
+                            <span class="progress-percentage" id="overallPercentage">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="overallProgress"></div>
+                        </div>
+                    </div>
+                    <div class="current-task">
+                        <div class="task-info">
+                            <span class="task-label">Current Task:</span>
+                            <span class="task-name" id="currentTaskName">Initializing...</span>
+                        </div>
+                        <div class="task-spinner">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </div>
+                    </div>
+                    <div class="generation-log" id="generationLog">
+                        <!-- Log entries will be added here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <div class="section-header">
+                    <h2><i class="fas fa-check-circle"></i> Generation Results</h2>
+                    <div class="results-actions">
+                        <button class="btn btn-sm btn-primary" id="downloadAllBtn">
+                            <i class="fas fa-download"></i>
+                            Download All
+                        </button>
+                        <button class="btn btn-sm btn-secondary" id="viewOnGithubBtn">
+                            <i class="fab fa-github"></i>
+                            View on GitHub
+                        </button>
+                    </div>
+                </div>
+                <div class="results-grid" id="resultsGrid">
+                    <!-- Results will be populated here -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-info">
+                    <p>&copy; 2024 Cordova App Generator. Built with ❤️ for mobile developers.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="#" id="aboutBtn">About</a>
+                    <a href="#" id="helpBtn">Help</a>
+                    <a href="#" id="githubBtn">
+                        <i class="fab fa-github"></i>
+                        GitHub
+                    </a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+    <!-- Custom Template Modal -->
+    <div class="modal-overlay" id="customTemplateModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus-circle"></i> Add Custom Template</h3>
+                <button class="modal-close" id="closeCustomTemplateModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="customTemplateForm">
+                    <div class="form-group">
+                        <label for="customAppName">App Name</label>
+                        <input type="text" id="customAppName" placeholder="MyAwesomeApp" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="customAppDescription">Description</label>
+                        <textarea id="customAppDescription" placeholder="Brief description of your app..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="customAppCategory">Category</label>
+                        <select id="customAppCategory" required>
+                            <option value="">Select Category</option>
+                            <option value="productivity">Productivity</option>
+                            <option value="utilities">Utilities</option>
+                            <option value="entertainment">Entertainment</option>
+                            <option value="education">Education</option>
+                            <option value="health">Health & Fitness</option>
+                            <option value="finance">Finance</option>
+                            <option value="weather">Weather</option>
+                            <option value="social">Social</option>
+                            <option value="business">Business</option>
+                            <option value="lifestyle">Lifestyle</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="customAppIcon">Icon (Emoji)</label>
+                        <input type="text" id="customAppIcon" placeholder="📱" maxlength="2">
+                    </div>
+                    <div class="form-group">
+                        <label for="customAppColor">Theme Color</label>
+                        <input type="color" id="customAppColor" value="#4A90E2">
+                    </div>
+                    <div class="form-group">
+                        <label>Plugins (Select all that apply)</label>
+                        <div class="checkbox-grid" id="customPluginsGrid">
+                            <!-- Plugin checkboxes will be populated here -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelCustomTemplate">Cancel</button>
+                <button type="submit" form="customTemplateForm" class="btn btn-primary">Add Template</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div class="modal-overlay" id="configModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-cog"></i> Load Configuration</h3>
+                <button class="modal-close" id="closeConfigModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="file-upload-area" id="configUploadArea">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <h4>Drop configuration file here</h4>
+                    <p>or click to browse</p>
+                    <input type="file" id="configFileInput" accept=".json" hidden>
+                </div>
+                <div class="config-preview" id="configPreview" style="display: none;">
+                    <h4>Configuration Preview</h4>
+                    <pre id="configPreviewContent"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelConfigLoad">Cancel</button>
+                <button type="button" class="btn btn-primary" id="loadConfigConfirm" disabled>Load Configuration</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer">
+        <!-- Toast notifications will be added here -->
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/templates.js"></script>
+    <script src="js/generator.js"></script>
+    <script src="js/github.js"></script>
+    <script src="js/cordova-builder.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

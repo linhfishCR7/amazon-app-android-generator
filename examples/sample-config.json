@@ -1,0 +1,84 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2024-01-20T10:30:00.000Z",
+  "description": "Sample configuration for Cordova App Generator",
+  "global": {
+    "githubUsername": "linhfishCR7",
+    "packagePrefix": "com.linhfish",
+    "authorName": "LinhFish Development Team",
+    "authorEmail": "dev@linhfish.com",
+    "outputDirectory": "./generated-apps",
+    "androidMinSdk": "33"
+  },
+  "selectedTemplates": [
+    "climate-monitor",
+    "task-master-pro",
+    "qr-scanner-plus",
+    "expense-tracker",
+    "fitness-companion"
+  ],
+  "customTemplates": [
+    {
+      "id": "my-custom-app",
+      "name": "MyCustomApp",
+      "displayName": "My Custom App",
+      "description": "A custom mobile application tailored to specific needs",
+      "category": "business",
+      "icon": "🏢",
+      "color": "#2E86AB",
+      "features": [
+        "Business analytics",
+        "Customer management",
+        "Report generation",
+        "Data synchronization"
+      ],
+      "plugins": [
+        "cordova-plugin-file",
+        "cordova-plugin-network-information",
+        "cordova-plugin-local-notification",
+        "cordova-plugin-camera"
+      ],
+      "estimatedTime": 4,
+      "custom": true
+    }
+  ],
+  "buildSettings": {
+    "android": {
+      "minSdkVersion": 22,
+      "targetSdkVersion": 33,
+      "compileSdkVersion": 33
+    },
+    "preferences": {
+      "DisallowOverscroll": "true",
+      "BackupWebStorage": "none",
+      "SplashMaintainAspectRatio": "true",
+      "FadeSplashScreenDuration": "300",
+      "SplashShowOnlyFirstTime": "false",
+      "SplashScreen": "screen",
+      "SplashScreenDelay": "3000",
+      "Orientation": "portrait"
+    }
+  },
+  "github": {
+    "createRepo": true,
+    "visibility": "public",
+    "autoCommit": true,
+    "defaultBranch": "main",
+    "includeReadme": true,
+    "includeLicense": true
+  },
+  "deployment": {
+    "buildServices": [
+      "phonegap-build",
+      "monaca",
+      "ionic-appflow"
+    ],
+    "generateDeploymentScript": true,
+    "includeGitHubActions": true
+  },
+  "metadata": {
+    "createdBy": "Cordova App Generator v1.0.0",
+    "purpose": "Sample configuration for demonstration",
+    "notes": "This configuration generates 5 diverse mobile applications with custom branding and GitHub integration."
+  }
+}
