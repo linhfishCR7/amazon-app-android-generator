@@ -508,7 +508,7 @@ class UIManager {
             
             // Set default values
             document.getElementById('githubUsername').value = 'linhfishCR7';
-            document.getElementById('githubToken').value = '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';
+            document.getElementById('githubToken').value = '';
             document.getElementById('packagePrefix').value = 'com.lehau';
             document.getElementById('authorName').value = 'LinhFish Development Team';
             document.getElementById('authorEmail').value = 'dev@linhfish.com';
