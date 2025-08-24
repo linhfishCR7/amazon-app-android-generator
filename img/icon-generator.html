@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cordova App Generator - Icon Generator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .icon-container {
+            display: inline-block;
+            margin: 20px;
+            text-align: center;
+        }
+        
+        .icon-512 {
+            width: 512px;
+            height: 512px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .icon-114 {
+            width: 114px;
+            height: 114px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .banner-1280 {
+            width: 1280px;
+            height: 800px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .icon-content {
+            color: white;
+            text-align: center;
+            z-index: 2;
+            position: relative;
+        }
+        
+        .icon-512 .icon-content {
+            font-size: 48px;
+            font-weight: 700;
+        }
+        
+        .icon-114 .icon-content {
+            font-size: 12px;
+            font-weight: 700;
+        }
+        
+        .banner-1280 .icon-content {
+            font-size: 72px;
+            font-weight: 700;
+        }
+        
+        .icon-symbol {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .icon-512 .icon-symbol {
+            font-size: 120px;
+            margin-bottom: 20px;
+        }
+        
+        .icon-114 .icon-symbol {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+        
+        .banner-1280 .icon-symbol {
+            font-size: 150px;
+            margin-bottom: 30px;
+        }
+        
+        .icon-bg-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0.1;
+            background-image: 
+                radial-gradient(circle at 25% 25%, white 2px, transparent 2px),
+                radial-gradient(circle at 75% 75%, white 2px, transparent 2px);
+            background-size: 50px 50px;
+            z-index: 1;
+        }
+        
+        .banner-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 90%;
+            max-width: 1100px;
+        }
+        
+        .banner-text {
+            flex: 1;
+            text-align: left;
+            padding-right: 50px;
+        }
+        
+        .banner-visual {
+            flex: 1;
+            text-align: center;
+            font-size: 200px;
+            opacity: 0.8;
+        }
+        
+        .subtitle {
+            font-size: 0.4em;
+            font-weight: 400;
+            margin-top: 10px;
+            opacity: 0.9;
+        }
+        
+        .banner-features {
+            font-size: 0.25em;
+            font-weight: 400;
+            margin-top: 20px;
+            line-height: 1.6;
+            opacity: 0.8;
+        }
+        
+        .instructions {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .instructions h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .instructions ol {
+            line-height: 1.8;
+        }
+        
+        .instructions code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">
+        <h2>📱 Cordova App Generator - Icon Creation Instructions</h2>
+        <p>Use this page to create app icons by taking screenshots of each icon below:</p>
+        <ol>
+            <li>Right-click on each icon below and select "Save image as..." or use screenshot tools</li>
+            <li>Save the 512x512 icon as <code>app-icon-512.png</code></li>
+            <li>Save the 114x114 icon as <code>app-icon-114.png</code></li>
+            <li>Save each 1280x800 banner with descriptive names like <code>banner-main.png</code>, <code>banner-features.png</code>, etc.</li>
+            <li>Place all images in the <code>app-generator/img/icons/</code> directory</li>
+        </ol>
+        <p><strong>Tip:</strong> Use browser developer tools to hide other elements and capture clean screenshots, or use tools like Figma/Canva to export these designs.</p>
+    </div>
+
+    <!-- 512x512 App Store Icon -->
+    <div class="icon-container">
+        <h3>512x512 - App Store Icon</h3>
+        <div class="icon-512">
+            <div class="icon-bg-pattern"></div>
+            <div class="icon-content">
+                <span class="icon-symbol">📱</span>
+                <div>CORDOVA</div>
+                <div style="font-size: 0.6em; font-weight: 400; margin-top: 8px;">APP GENERATOR</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 114x114 iOS App Icon -->
+    <div class="icon-container">
+        <h3>114x114 - iOS App Icon</h3>
+        <div class="icon-114">
+            <div class="icon-bg-pattern"></div>
+            <div class="icon-content">
+                <span class="icon-symbol">📱</span>
+                <div>CAG</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1280x800 Banner 1 - Main -->
+    <div class="icon-container">
+        <h3>1280x800 - Main Banner</h3>
+        <div class="banner-1280">
+            <div class="icon-bg-pattern"></div>
+            <div class="banner-content">
+                <div class="banner-text">
+                    <div>CORDOVA APP GENERATOR</div>
+                    <div class="subtitle">Professional Mobile App Development Made Easy</div>
+                    <div class="banner-features">
+                        ✨ Generate Multiple Apps Instantly<br>
+                        🚀 Automated CI/CD with Codemagic<br>
+                        📱 Production-Ready Cordova Projects
+                    </div>
+                </div>
+                <div class="banner-visual">📱</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1280x800 Banner 2 - Features -->
+    <div class="icon-container">
+        <h3>1280x800 - Features Banner</h3>
+        <div class="banner-1280">
+            <div class="icon-bg-pattern"></div>
+            <div class="banner-content">
+                <div class="banner-text">
+                    <div>POWERFUL FEATURES</div>
+                    <div class="subtitle">Everything You Need for Mobile App Development</div>
+                    <div class="banner-features">
+                        🏗️ Automated Build Preparation<br>
+                        🔧 GitHub Integration<br>
+                        ⚡ Instant Project Setup<br>
+                        🎯 Professional Templates
+                    </div>
+                </div>
+                <div class="banner-visual">⚡</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1280x800 Banner 3 - Workflow -->
+    <div class="icon-container">
+        <h3>1280x800 - Workflow Banner</h3>
+        <div class="banner-1280">
+            <div class="icon-bg-pattern"></div>
+            <div class="banner-content">
+                <div class="banner-text">
+                    <div>STREAMLINED WORKFLOW</div>
+                    <div class="subtitle">From Idea to App Store in Minutes</div>
+                    <div class="banner-features">
+                        1️⃣ Select Templates & Configure<br>
+                        2️⃣ Generate & Push to GitHub<br>
+                        3️⃣ Automatic Codemagic Builds<br>
+                        4️⃣ Download Ready APK/AAB Files
+                    </div>
+                </div>
+                <div class="banner-visual">🔄</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <h2>🎨 Alternative Icon Creation Methods</h2>
+        <p>If you prefer to create custom icons, here are the recommended specifications:</p>
+        
+        <h3>App Store Icon (512x512):</h3>
+        <ul>
+            <li>Format: PNG with transparency</li>
+            <li>Background: Gradient from #667eea to #764ba2</li>
+            <li>Border radius: 80px (15.6%)</li>
+            <li>Main symbol: 📱 or custom app icon</li>
+            <li>Text: "CORDOVA" (48px, bold) + "APP GENERATOR" (28px, normal)</li>
+        </ul>
+        
+        <h3>iOS App Icon (114x114):</h3>
+        <ul>
+            <li>Format: PNG with transparency</li>
+            <li>Background: Same gradient as above</li>
+            <li>Border radius: 18px (15.8%)</li>
+            <li>Simplified design with "CAG" text or just the 📱 symbol</li>
+        </ul>
+        
+        <h3>Promotional Banners (1280x800):</h3>
+        <ul>
+            <li>Format: PNG or JPG</li>
+            <li>Background: Same gradient with subtle pattern</li>
+            <li>Layout: Text on left, visual element on right</li>
+            <li>Typography: Large title (72px), subtitle (28px), features (18px)</li>
+        </ul>
+        
+        <h3>Color Palette:</h3>
+        <ul>
+            <li>Primary: #667eea (Blue)</li>
+            <li>Secondary: #764ba2 (Purple)</li>
+            <li>Text: White (#ffffff)</li>
+            <li>Accent: rgba(255,255,255,0.1) for patterns</li>
+        </ul>
+    </div>
+</body>
+</html>

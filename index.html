@@ -244,6 +244,13 @@
                             <i class="fas fa-clock"></i>
                             Est. Time: <span id="estimatedTime">0 min</span>
                         </span>
+                        <div class="build-status-indicator" id="buildStatusIndicator" style="display: none;">
+                            <i class="fas fa-sync-alt fa-spin"></i>
+                            <span id="buildStatusText">Monitoring builds...</span>
+                        </div>
+                        <button class="btn btn-sm btn-info" onclick="ui.showBuildHistory()" title="View Build History">
+                            <i class="fas fa-history"></i> Build History
+                        </button>
                     </div>
                 </div>
                 <div class="preview-list" id="previewList">
@@ -425,6 +432,7 @@
     <script src="js/generator.js"></script>
     <script src="js/github.js"></script>
     <script src="js/codemagic.js"></script>
+    <script src="js/build-status-manager.js"></script>
     <script src="js/cordova-builder.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>

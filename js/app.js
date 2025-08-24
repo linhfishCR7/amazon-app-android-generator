@@ -23,6 +23,10 @@ class CordovaAppGeneratorApp {
             this.github = new GitHubIntegration();
             this.codemagic = new CodemagicIntegration();
             this.cordovaBuilder = new CordovaBuildPreparation();
+            this.buildStatusManager = new BuildStatusManager();
+
+            // Connect build status manager with Codemagic integration
+            this.buildStatusManager.setCodemagicIntegration(this.codemagic);
 
             // Make core modules globally available before UI initialization
             window.templatesManager = this.templatesManager;
@@ -30,6 +34,7 @@ class CordovaAppGeneratorApp {
             window.github = this.github;
             window.codemagic = this.codemagic;
             window.cordovaBuilder = this.cordovaBuilder;
+            window.buildStatusManager = this.buildStatusManager;
             window.app = this;
 
             // Wait for DOM to be ready before initializing UI
@@ -48,6 +53,11 @@ class CordovaAppGeneratorApp {
 
             // Initialize UI with templates
             await this.initializeUI();
+
+            // Start polling for active builds after initialization
+            setTimeout(() => {
+                this.buildStatusManager.startPollingActiveBuilds();
+            }, 2000);
 
             console.log('Cordova App Generator initialized successfully');
         } catch (error) {
@@ -82,6 +92,12 @@ class CordovaAppGeneratorApp {
         this.codemagic.on('app:create:error', this.onCodemagicAppCreateError.bind(this));
         this.codemagic.on('build:trigger:success', this.onCodemagicBuildTriggerSuccess.bind(this));
         this.codemagic.on('build:trigger:error', this.onCodemagicBuildTriggerError.bind(this));
+
+        // Build Status Manager events
+        this.buildStatusManager.on('build:status:updated', this.onBuildStatusUpdated.bind(this));
+        this.buildStatusManager.on('build:completed', this.onBuildCompleted.bind(this));
+        this.buildStatusManager.on('build:polling:started', this.onBuildPollingStarted.bind(this));
+        this.buildStatusManager.on('build:polling:stopped', this.onBuildPollingStopped.bind(this));
 
         // Cordova Builder events
         this.cordovaBuilder.on('build:start', this.onBuildStart.bind(this));
@@ -306,14 +322,14 @@ class CordovaAppGeneratorApp {
                             <p><strong>Plugins:</strong> ${result.template.plugins.length}</p>
                             ${isBuildReady ? '<p><strong>Cordova Structure:</strong> ✅ Ready for building</p>' : ''}
                             ${isBuildReady ? '<p><strong>Codemagic CI/CD:</strong> ✅ Configured</p>' : ''}
-                            ${isCodemagicReady ? `<p><strong>Codemagic App:</strong> ✅ <a href="https://codemagic.io/app/${codemagicResult.application.id}" target="_blank">View Project</a></p>` : ''}
+                            ${isCodemagicReady && codemagicResult.application ? `<p><strong>Codemagic App:</strong> ✅ <a href="https://codemagic.io/app/${codemagicResult.application.id}" target="_blank">View Project</a></p>` : ''}
                             ${isCodemagicReady && codemagicResult.build ? `<p><strong>Build Status:</strong> 🔄 <a href="${codemagicResult.build.buildUrl}" target="_blank">View Build</a></p>` : ''}
                         </div>
                         <div class="result-actions">
                             <a href="${githubResult.repository.htmlUrl}" target="_blank" class="btn btn-sm btn-primary">
                                 <i class="fab fa-github"></i> View on GitHub
                             </a>
-                            ${isCodemagicReady ? `
+                            ${isCodemagicReady && codemagicResult.application ? `
                                 <a href="https://codemagic.io/app/${codemagicResult.application.id}" target="_blank" class="btn btn-sm btn-warning">
                                     <i class="fas fa-rocket"></i> Codemagic
                                 </a>
@@ -532,10 +548,73 @@ class CordovaAppGeneratorApp {
 
     onCodemagicBuildTriggerSuccess(data) {
         this.addLogEntry(`✓ Build triggered for workflow ${data.build.workflowId} (Build ID: ${data.build.buildId})`, 'success');
+
+        // Save build to status manager and start polling
+        const buildInfo = {
+            buildId: data.build.buildId,
+            appName: data.appName || 'Unknown App',
+            applicationId: data.build.applicationId,
+            status: this.buildStatusManager.STATUS.QUEUED,
+            workflowId: data.build.workflowId,
+            branch: data.build.branch,
+            buildUrl: data.build.buildUrl,
+            projectUrl: `https://codemagic.io/app/${data.build.applicationId}`,
+            timestamp: new Date().toISOString(),
+            startedAt: data.build.startedAt
+        };
+
+        this.buildStatusManager.saveBuild(buildInfo);
+        this.buildStatusManager.startPolling(data.build.buildId);
     }
 
     onCodemagicBuildTriggerError(data) {
         this.addLogEntry(`✗ Failed to trigger build: ${data.error.message}`, 'error');
+    }
+
+    // Build Status Manager event handlers
+    onBuildStatusUpdated(buildData) {
+        this.addLogEntry(`🔄 Build ${buildData.buildId} status: ${buildData.status}`, 'info');
+        if (this.ui) {
+            this.ui.updateSelectedAppsPreview();
+        }
+        this.emit('build:status:changed', buildData);
+    }
+
+    onBuildCompleted(buildData) {
+        const statusIcon = buildData.status === this.buildStatusManager.STATUS.SUCCESS ? '✅' : '❌';
+        this.addLogEntry(`${statusIcon} Build ${buildData.buildId} completed: ${buildData.status}`,
+                         buildData.status === this.buildStatusManager.STATUS.SUCCESS ? 'success' : 'error');
+        if (this.ui) {
+            this.ui.updateSelectedAppsPreview();
+        }
+        this.emit('build:completed', buildData);
+    }
+
+    onBuildPollingStarted(data) {
+        this.addLogEntry(`🔄 Started monitoring build ${data.buildId}`, 'info');
+        this.updateBuildStatusIndicator();
+    }
+
+    onBuildPollingStopped(data) {
+        this.addLogEntry(`⏹️ Stopped monitoring build ${data.buildId}`, 'info');
+        this.updateBuildStatusIndicator();
+    }
+
+    // Update build status indicator
+    updateBuildStatusIndicator() {
+        const indicator = document.getElementById('buildStatusIndicator');
+        const statusText = document.getElementById('buildStatusText');
+
+        if (!indicator || !statusText) return;
+
+        const activeBuilds = this.buildStatusManager.activePolling.size;
+
+        if (activeBuilds > 0) {
+            indicator.style.display = 'flex';
+            statusText.textContent = `Monitoring ${activeBuilds} build${activeBuilds > 1 ? 's' : ''}...`;
+        } else {
+            indicator.style.display = 'none';
+        }
     }
 
     // Cordova Builder event handlers
@@ -578,46 +657,179 @@ class CordovaAppGeneratorApp {
         const appName = result.template.displayName;
         const packageName = buildResult.packageName;
 
-        const instructions = `
-# 🏗️ Build Instructions for ${appName}
+        // Get repository URL from GitHub results
+        const githubResults = this.generationResults.githubResults || [];
+        const githubResult = githubResults.find(gr => gr.appName === result.template.name);
+        const repositoryUrl = githubResult?.repository?.cloneUrl || 'YOUR_REPOSITORY_URL';
 
-## Quick Start Commands
+        const instructions = `# 🏗️ Build Instructions for ${appName}
 
-### Clone and Build:
-\`\`\`bash
-git clone ${result.repositoryUrl || 'YOUR_REPOSITORY_URL'}
-cd ${result.template.name}
-npm install
-cordova platform add android
-cordova build android
-\`\`\`
-
-### Run on Device:
-\`\`\`bash
-cordova run android
-\`\`\`
-
-### Build for Release:
-\`\`\`bash
-cordova build android --release
-\`\`\`
-
-## Project Details
+## 📋 Project Information
 - **Package Name:** ${packageName}
-- **Cordova Structure:** ✅ Ready
+- **Cordova Structure:** ✅ Ready for building
 - **Codemagic CI/CD:** ✅ Configured
 - **Plugins:** ${result.template.plugins.length} configured
+- **Repository:** ${repositoryUrl}
 
-## CI/CD with Codemagic
-1. Connect repository to Codemagic.io
-2. Build will run automatically using codemagic.yaml
-3. Download APK/AAB from artifacts
+## 🚀 Quick Start Commands
 
-## Build Outputs
-- **Debug APK:** platforms/android/app/build/outputs/apk/debug/app-debug.apk
-- **Release APK:** platforms/android/app/build/outputs/apk/release/app-release.apk
-- **Release AAB:** platforms/android/app/build/outputs/bundle/release/app-release.aab
-        `;
+### 1. Clone and Setup:
+\`\`\`bash
+# Clone the repository
+git clone ${repositoryUrl}
+cd ${result.template.name}
+
+# Install dependencies
+npm install
+
+# Add Android platform
+cordova platform add android
+\`\`\`
+
+### 2. Development Build:
+\`\`\`bash
+# Build for development
+cordova build android
+
+# Run on connected device/emulator
+cordova run android
+
+# Run with live reload
+cordova run android --livereload
+\`\`\`
+
+### 3. Production Build:
+\`\`\`bash
+# Build for release (unsigned)
+cordova build android --release
+
+# Build with specific configuration
+cordova build android --release --buildConfig=build.json
+\`\`\`
+
+## 🔧 Advanced Commands
+
+### Platform Management:
+\`\`\`bash
+# List installed platforms
+cordova platform list
+
+# Remove and re-add platform (clean build)
+cordova platform remove android
+cordova platform add android
+
+# Update platform
+cordova platform update android
+\`\`\`
+
+### Plugin Management:
+\`\`\`bash
+# List installed plugins
+cordova plugin list
+
+# Add a plugin
+cordova plugin add cordova-plugin-camera
+
+# Remove a plugin
+cordova plugin remove cordova-plugin-camera
+\`\`\`
+
+### Debugging:
+\`\`\`bash
+# Enable verbose logging
+cordova build android --verbose
+
+# Clean build
+cordova clean android
+
+# Check requirements
+cordova requirements android
+\`\`\`
+
+## 🏗️ CI/CD with Codemagic
+
+This project is configured for automatic builds with Codemagic.io:
+
+1. **Automatic Builds:** Push to main branch triggers builds
+2. **Build Configuration:** Uses codemagic.yaml in repository root
+3. **Artifacts:** APK/AAB files available after successful builds
+4. **Notifications:** Build status sent via email/Slack
+
+### Manual Trigger:
+Visit your Codemagic dashboard to manually trigger builds or modify settings.
+
+## 📱 Build Outputs
+
+After successful build, find your files at:
+
+### Debug Build:
+- **APK:** \`platforms/android/app/build/outputs/apk/debug/app-debug.apk\`
+- **Size:** ~5-15 MB (includes debug symbols)
+- **Use:** Testing and development
+
+### Release Build:
+- **APK:** \`platforms/android/app/build/outputs/apk/release/app-release.apk\`
+- **AAB:** \`platforms/android/app/build/outputs/bundle/release/app-release.aab\`
+- **Size:** ~3-10 MB (optimized)
+- **Use:** Production deployment
+
+## 🔐 Code Signing (Production)
+
+For production releases, you'll need to sign your APK:
+
+1. **Generate Keystore:**
+\`\`\`bash
+keytool -genkey -v -keystore my-release-key.keystore -alias alias_name -keyalg RSA -keysize 2048 -validity 10000
+\`\`\`
+
+2. **Create build.json:**
+\`\`\`json
+{
+  "android": {
+    "release": {
+      "keystore": "my-release-key.keystore",
+      "storePassword": "password",
+      "alias": "alias_name",
+      "password": "password"
+    }
+  }
+}
+\`\`\`
+
+3. **Build Signed APK:**
+\`\`\`bash
+cordova build android --release --buildConfig=build.json
+\`\`\`
+
+## 🐛 Troubleshooting
+
+### Common Issues:
+
+**Build Fails:**
+- Run \`cordova clean android\`
+- Check \`cordova requirements android\`
+- Update Android SDK/Build Tools
+
+**Plugin Errors:**
+- Remove and re-add problematic plugins
+- Check plugin compatibility with Cordova version
+
+**Gradle Issues:**
+- Update Android platform: \`cordova platform update android\`
+- Clear Gradle cache: \`./gradlew clean\` in platforms/android/
+
+**Device Not Detected:**
+- Enable USB Debugging on device
+- Install device drivers
+- Check \`adb devices\`
+
+### Getting Help:
+- Check Cordova documentation: https://cordova.apache.org/docs/
+- Visit Codemagic docs: https://docs.codemagic.io/
+- Community support: https://github.com/apache/cordova
+
+---
+Generated by Cordova App Generator - Happy Building! 🎉`;
 
         // Create and show modal with instructions
         this.showInstructionsModal(appName, instructions);
@@ -637,12 +849,12 @@ cordova build android --release
                         <h3 id="instructionsTitle">${title}</h3>
                         <button class="modal-close">&times;</button>
                     </div>
-                    <div class="modal-body">
-                        <pre id="instructionsContent" style="background: #2d3748; color: #e2e8f0; padding: 20px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; font-size: 14px;">${content}</pre>
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                        <pre id="instructionsContent" style="background: #2d3748; color: #e2e8f0; padding: 20px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; font-size: 13px; line-height: 1.5; font-family: 'Consolas', 'Monaco', 'Courier New', monospace;">${content}</pre>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="this.copyInstructions()">Copy Instructions</button>
-                        <button class="btn btn-primary" onclick="this.closeInstructionsModal()">Close</button>
+                        <button class="btn btn-secondary" onclick="app.copyInstructions()">Copy Instructions</button>
+                        <button class="btn btn-primary" onclick="app.closeInstructionsModal()">Close</button>
                     </div>
                 </div>
             `;

@@ -267,22 +267,27 @@ class UIManager {
             const selectedTemplateIds = Array.from(this.selectedTemplates);
             const templates = selectedTemplateIds.map(id => window.templatesManager.getTemplate(id)).filter(Boolean);
             
-            previewList.innerHTML = templates.map(template => `
-                <div class="preview-item">
+            previewList.innerHTML = templates.map(template => {
+                const buildStatus = this.getBuildStatusForTemplate(template);
+                return `
+                <div class="preview-item" data-template-id="${template.id}">
                     <div class="preview-icon" style="background-color: ${template.color}">
                         ${template.icon}
                     </div>
                     <div class="preview-info">
                         <h4>${template.displayName}</h4>
                         <p>${template.description}</p>
+                        ${buildStatus ? this.renderBuildStatus(buildStatus) : ''}
                     </div>
                     <div class="preview-actions">
+                        ${buildStatus ? this.renderBuildActions(buildStatus) : ''}
                         <button class="btn btn-sm btn-secondary" onclick="ui.removeFromPreview('${template.id}')">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // Update generate button state
@@ -300,6 +305,330 @@ class UIManager {
             card.classList.remove('selected');
         }
         this.updatePreview();
+    }
+
+    // Get build status for a template
+    getBuildStatusForTemplate(template) {
+        if (!window.buildStatusManager) return null;
+
+        const builds = window.buildStatusManager.getBuildsByApp(template.name);
+        if (builds.length === 0) return null;
+
+        // Return the most recent build
+        return builds[0];
+    }
+
+    // Render build status information
+    renderBuildStatus(buildStatus) {
+        if (!buildStatus) return '';
+
+        const badge = window.buildStatusManager.getStatusBadge(buildStatus.status);
+        const timestamp = window.buildStatusManager.formatTimestamp(buildStatus.lastUpdated);
+
+        return `
+            <div class="build-status-info">
+                <div class="build-status-badge ${badge.class}" style="background-color: ${badge.color}">
+                    ${badge.icon} ${badge.text}
+                </div>
+                <div class="build-timestamp">
+                    <i class="fas fa-clock"></i> ${timestamp}
+                    ${buildStatus.duration ? `(${buildStatus.duration})` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    // Render build actions
+    renderBuildActions(buildStatus) {
+        if (!buildStatus) return '';
+
+        let actions = '';
+
+        // View build logs
+        if (buildStatus.buildUrl) {
+            actions += `
+                <a href="${buildStatus.buildUrl}" target="_blank" class="btn btn-sm btn-info" title="View Build Logs">
+                    <i class="fas fa-external-link-alt"></i>
+                </a>
+            `;
+        }
+
+        // View Codemagic project
+        if (buildStatus.projectUrl) {
+            actions += `
+                <a href="${buildStatus.projectUrl}" target="_blank" class="btn btn-sm btn-warning" title="View Codemagic Project">
+                    <i class="fas fa-rocket"></i>
+                </a>
+            `;
+        }
+
+        // Download artifacts
+        if (buildStatus.status === window.buildStatusManager?.STATUS.SUCCESS && buildStatus.artifacts?.length > 0) {
+            actions += `
+                <button class="btn btn-sm btn-success" onclick="ui.showArtifacts('${buildStatus.buildId}')" title="Download Artifacts">
+                    <i class="fas fa-download"></i>
+                </button>
+            `;
+        }
+
+        return actions;
+    }
+
+    // Show artifacts modal
+    showArtifacts(buildId) {
+        if (!window.buildStatusManager) return;
+
+        const build = window.buildStatusManager.getBuild(buildId);
+        if (!build || !build.artifacts || build.artifacts.length === 0) {
+            alert('No artifacts available for this build.');
+            return;
+        }
+
+        const artifactsList = build.artifacts.map(artifact => `
+            <div class="artifact-item">
+                <div class="artifact-info">
+                    <h4>${artifact.name}</h4>
+                    <p>Type: ${artifact.type} | Size: ${(artifact.size / 1024 / 1024).toFixed(2)} MB</p>
+                    ${artifact.versionName ? `<p>Version: ${artifact.versionName}</p>` : ''}
+                </div>
+                <div class="artifact-actions">
+                    <a href="${artifact.url}" target="_blank" class="btn btn-primary" download>
+                        <i class="fas fa-download"></i> Download
+                    </a>
+                </div>
+            </div>
+        `).join('');
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-download"></i> Build Artifacts</h3>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="artifacts-list">
+                        ${artifactsList}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+    }
+
+    // Update selected apps preview (called from app.js)
+    updateSelectedAppsPreview() {
+        this.updatePreview();
+    }
+
+    // Show build history modal
+    showBuildHistory() {
+        if (!window.buildStatusManager) {
+            alert('Build status manager not available.');
+            return;
+        }
+
+        const builds = window.buildStatusManager.loadBuildHistory();
+        const stats = window.buildStatusManager.getBuildStats();
+
+        if (builds.length === 0) {
+            alert('No build history available.');
+            return;
+        }
+
+        const buildsList = builds.map(build => {
+            const badge = window.buildStatusManager.getStatusBadge(build.status);
+            const timestamp = window.buildStatusManager.formatTimestamp(build.timestamp);
+            const duration = build.duration ? `(${build.duration})` : '';
+
+            return `
+                <div class="build-history-item" data-build-id="${build.buildId}">
+                    <div class="build-info">
+                        <div class="build-header">
+                            <h4>${build.appName}</h4>
+                            <div class="build-status-badge ${badge.class}" style="background-color: ${badge.color}">
+                                ${badge.icon} ${badge.text}
+                            </div>
+                        </div>
+                        <div class="build-details">
+                            <p><strong>Build ID:</strong> ${build.buildId}</p>
+                            <p><strong>Workflow:</strong> ${build.workflowId} (${build.branch})</p>
+                            <p><strong>Started:</strong> ${timestamp} ${duration}</p>
+                            ${build.artifacts && build.artifacts.length > 0 ?
+                                `<p><strong>Artifacts:</strong> ${build.artifacts.length} files</p>` : ''}
+                        </div>
+                    </div>
+                    <div class="build-actions">
+                        ${build.buildUrl ? `
+                            <a href="${build.buildUrl}" target="_blank" class="btn btn-sm btn-info" title="View Build Logs">
+                                <i class="fas fa-external-link-alt"></i>
+                            </a>
+                        ` : ''}
+                        ${build.projectUrl ? `
+                            <a href="${build.projectUrl}" target="_blank" class="btn btn-sm btn-warning" title="View Codemagic Project">
+                                <i class="fas fa-rocket"></i>
+                            </a>
+                        ` : ''}
+                        ${build.status === window.buildStatusManager.STATUS.SUCCESS && build.artifacts?.length > 0 ? `
+                            <button class="btn btn-sm btn-success" onclick="ui.showArtifacts('${build.buildId}')" title="Download Artifacts">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-sm btn-danger" onclick="ui.deleteBuild('${build.buildId}')" title="Delete Build">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay build-history-modal';
+        modal.innerHTML = `
+            <div class="modal-content large-modal">
+                <div class="modal-header">
+                    <h3><i class="fas fa-history"></i> Build History</h3>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="build-stats">
+                        <div class="stat-item">
+                            <span class="stat-value">${stats.total}</span>
+                            <span class="stat-label">Total Builds</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${stats.success}</span>
+                            <span class="stat-label">Successful</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${stats.failed}</span>
+                            <span class="stat-label">Failed</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${stats.building}</span>
+                            <span class="stat-label">Building</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${stats.successRate}%</span>
+                            <span class="stat-label">Success Rate</span>
+                        </div>
+                    </div>
+                    <div class="build-history-list">
+                        ${buildsList}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-warning" onclick="ui.exportBuildHistory()">
+                        <i class="fas fa-download"></i> Export History
+                    </button>
+                    <button class="btn btn-danger" onclick="ui.clearBuildHistory()">
+                        <i class="fas fa-trash"></i> Clear History
+                    </button>
+                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+    }
+
+    // Delete a specific build
+    deleteBuild(buildId) {
+        if (!confirm('Are you sure you want to delete this build from history?')) {
+            return;
+        }
+
+        if (!window.buildStatusManager) return;
+
+        const builds = window.buildStatusManager.loadBuildHistory();
+        const filteredBuilds = builds.filter(b => b.buildId !== buildId);
+
+        localStorage.setItem(window.buildStatusManager.storageKey, JSON.stringify(filteredBuilds));
+
+        // Remove from UI
+        const buildElement = document.querySelector(`[data-build-id="${buildId}"]`);
+        if (buildElement) {
+            buildElement.remove();
+        }
+
+        // Update preview if needed
+        this.updateSelectedAppsPreview();
+    }
+
+    // Clear all build history
+    clearBuildHistory() {
+        if (!confirm('Are you sure you want to clear all build history? This action cannot be undone.')) {
+            return;
+        }
+
+        if (!window.buildStatusManager) return;
+
+        window.buildStatusManager.clearBuildHistory();
+
+        // Close modal and update UI
+        const modal = document.querySelector('.build-history-modal');
+        if (modal) {
+            modal.remove();
+        }
+
+        this.updateSelectedAppsPreview();
+        alert('Build history cleared successfully.');
+    }
+
+    // Export build history
+    exportBuildHistory() {
+        if (!window.buildStatusManager) return;
+
+        const exportData = window.buildStatusManager.exportBuildHistory();
+        const blob = new Blob([exportData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cordova-build-history-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // Import build history
+    importBuildHistory() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const success = window.buildStatusManager.importBuildHistory(e.target.result);
+                    if (success) {
+                        alert('Build history imported successfully.');
+                        this.updateSelectedAppsPreview();
+                    } else {
+                        alert('Failed to import build history. Invalid file format.');
+                    }
+                } catch (error) {
+                    alert('Failed to import build history: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
     }
 
     // Calculate estimated time

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <pattern id="dotPattern" patternUnits="userSpaceOnUse" width="50" height="50">
+      <circle cx="25" cy="25" r="2" fill="rgba(255,255,255,0.1)"/>
+    </pattern>
+    <filter id="textShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.3)"/>
+    </filter>
+  </defs>
+  
+  <!-- Background with rounded corners -->
+  <rect width="512" height="512" rx="80" ry="80" fill="url(#backgroundGradient)"/>
+  
+  <!-- Subtle pattern overlay -->
+  <rect width="512" height="512" rx="80" ry="80" fill="url(#dotPattern)"/>
+  
+  <!-- Mobile phone icon -->
+  <g transform="translate(256, 180)">
+    <!-- Phone body -->
+    <rect x="-40" y="-60" width="80" height="120" rx="12" ry="12" fill="white" opacity="0.9"/>
+    <!-- Screen -->
+    <rect x="-32" y="-45" width="64" height="90" rx="4" ry="4" fill="#667eea"/>
+    <!-- Home button -->
+    <circle cx="0" cy="45" r="6" fill="white" opacity="0.7"/>
+    <!-- Screen content lines -->
+    <rect x="-24" y="-35" width="48" height="3" rx="1" fill="white" opacity="0.6"/>
+    <rect x="-24" y="-25" width="32" height="3" rx="1" fill="white" opacity="0.6"/>
+    <rect x="-24" y="-15" width="40" height="3" rx="1" fill="white" opacity="0.6"/>
+  </g>
+  
+  <!-- Main text -->
+  <text x="256" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="white" filter="url(#textShadow)">CORDOVA</text>
+  
+  <!-- Subtitle -->
+  <text x="256" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="normal" fill="white" opacity="0.9" filter="url(#textShadow)">APP GENERATOR</text>
+  
+  <!-- Decorative elements -->
+  <g opacity="0.3">
+    <!-- Gear icon -->
+    <g transform="translate(120, 120)">
+      <circle cx="0" cy="0" r="20" fill="none" stroke="white" stroke-width="3"/>
+      <circle cx="0" cy="0" r="8" fill="white"/>
+      <rect x="-2" y="-25" width="4" height="10" fill="white"/>
+      <rect x="-2" y="15" width="4" height="10" fill="white"/>
+      <rect x="-25" y="-2" width="10" height="4" fill="white"/>
+      <rect x="15" y="-2" width="10" height="4" fill="white"/>
+    </g>
+    
+    <!-- Code brackets -->
+    <g transform="translate(392, 392)">
+      <path d="M -15 -10 L -20 0 L -15 10" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"/>
+      <path d="M 15 -10 L 20 0 L 15 10" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

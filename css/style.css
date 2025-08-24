@@ -745,6 +745,231 @@ section {
     box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
 }
 
+/* Build Status Styles */
+.build-status-info {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.build-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 1rem;
+    color: white;
+    margin-bottom: 0.25rem;
+}
+
+.badge-queued {
+    background-color: #6B7280;
+}
+
+.badge-building {
+    background-color: #F59E0B;
+    animation: pulse 2s infinite;
+}
+
+.badge-success {
+    background-color: #10B981;
+}
+
+.badge-failed {
+    background-color: #EF4444;
+}
+
+.badge-cancelled {
+    background-color: #6B7280;
+}
+
+.badge-timeout {
+    background-color: #F97316;
+}
+
+.build-timestamp {
+    font-size: 0.7rem;
+    color: #6B7280;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Artifacts Modal Styles */
+.artifacts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.artifact-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.5rem;
+    background: #F9FAFB;
+}
+
+.artifact-info h4 {
+    margin: 0 0 0.25rem 0;
+    color: #1F2937;
+}
+
+.artifact-info p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #6B7280;
+}
+
+.artifact-actions {
+    flex-shrink: 0;
+}
+
+/* Preview Item Enhancements */
+.preview-item {
+    position: relative;
+}
+
+.preview-item[data-template-id] .preview-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Build History Modal Styles */
+.large-modal {
+    max-width: 900px;
+    width: 95%;
+}
+
+.build-stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #F9FAFB;
+    border-radius: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    text-align: center;
+    flex: 1;
+    min-width: 80px;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1F2937;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.75rem;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.build-history-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.5rem;
+}
+
+.build-history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #E5E7EB;
+    background: white;
+    transition: background-color 0.2s;
+}
+
+.build-history-item:hover {
+    background: #F9FAFB;
+}
+
+.build-history-item:last-child {
+    border-bottom: none;
+}
+
+.build-info {
+    flex: 1;
+}
+
+.build-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.build-header h4 {
+    margin: 0;
+    color: #1F2937;
+    font-size: 1rem;
+}
+
+.build-details p {
+    margin: 0.25rem 0;
+    font-size: 0.875rem;
+    color: #6B7280;
+}
+
+.build-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* Build History Button in Preview Stats */
+.preview-stats {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.preview-stats .btn {
+    margin-left: auto;
+}
+
+/* Build Status Indicator */
+.build-status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    color: white;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+}
+
+.build-status-indicator i {
+    font-size: 0.75rem;
+}
+
 .result-card {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
@@ -879,6 +1104,24 @@ section {
 }
 
 .modal-overlay.show .modal {
+    transform: scale(1) translateY(0);
+}
+
+.modal-content {
+    background: var(--bg-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: hidden;
+    transform: scale(0.9) translateY(20px);
+    transition: transform var(--transition-normal);
+    margin: 5vh auto;
+    position: relative;
+}
+
+.modal-overlay.show .modal-content {
     transform: scale(1) translateY(0);
 }
 
