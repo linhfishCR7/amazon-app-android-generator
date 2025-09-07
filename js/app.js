@@ -19,6 +19,7 @@ class CordovaAppGeneratorApp {
         try {
             // Initialize core modules first (without UI dependencies)
             this.templatesManager = new AppTemplatesManager();
+            this.templateManager = new TemplateManager();
             this.generator = new CordovaAppGenerator();
             this.github = new GitHubIntegration();
             this.codemagic = new CodemagicIntegration();
@@ -30,6 +31,7 @@ class CordovaAppGeneratorApp {
 
             // Make core modules globally available before UI initialization
             window.templatesManager = this.templatesManager;
+            window.templateManager = this.templateManager;
             window.generator = this.generator;
             window.github = this.github;
             window.codemagic = this.codemagic;
@@ -565,6 +567,11 @@ class CordovaAppGeneratorApp {
 
         this.buildStatusManager.saveBuild(buildInfo);
         this.buildStatusManager.startPolling(data.build.buildId);
+
+        // Record template usage if template ID is available
+        if (data.templateId) {
+            this.templateManager.recordTemplateUsage(data.templateId, data.build.buildId, 'building');
+        }
     }
 
     onCodemagicBuildTriggerError(data) {
@@ -587,6 +594,13 @@ class CordovaAppGeneratorApp {
         if (this.ui) {
             this.ui.updateSelectedAppsPreview();
         }
+
+        // Update template usage statistics based on build result
+        if (buildData.templateId) {
+            const status = buildData.status === this.buildStatusManager.STATUS.SUCCESS ? 'success' : 'failed';
+            this.templateManager.recordTemplateUsage(buildData.templateId, buildData.buildId, status);
+        }
+
         this.emit('build:completed', buildData);
     }
 

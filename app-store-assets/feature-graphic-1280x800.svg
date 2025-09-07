@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1280" height="800" viewBox="0 0 1280 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#f093fb;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f5576c;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="overlayGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:rgba(0,0,0,0.3);stop-opacity:1" />
+      <stop offset="50%" style="stop-color:rgba(0,0,0,0.1);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:rgba(0,0,0,0.2);stop-opacity:1" />
+    </linearGradient>
+    <pattern id="dotPattern" patternUnits="userSpaceOnUse" width="60" height="60">
+      <circle cx="30" cy="30" r="2" fill="rgba(255,255,255,0.05)"/>
+    </pattern>
+    <filter id="phoneShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="15" stdDeviation="25" flood-color="rgba(0,0,0,0.3)"/>
+    </filter>
+    <filter id="textShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="rgba(0,0,0,0.5)"/>
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1280" height="800" fill="url(#backgroundGradient)"/>
+  
+  <!-- Pattern overlay -->
+  <rect width="1280" height="800" fill="url(#dotPattern)"/>
+  
+  <!-- Overlay for text readability -->
+  <rect width="1280" height="800" fill="url(#overlayGradient)"/>
+  
+  <!-- Left side content -->
+  <g transform="translate(100, 0)">
+    <!-- Main title -->
+    <text x="0" y="200" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="900" fill="white" filter="url(#textShadow)">CORDOVA</text>
+    <text x="0" y="270" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="900" fill="white" filter="url(#textShadow)">APP GENERATOR</text>
+    
+    <!-- Subtitle -->
+    <text x="0" y="330" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="600" fill="white" opacity="0.9" filter="url(#textShadow)">Create Multiple Mobile Apps Instantly</text>
+    
+    <!-- Feature bullets -->
+    <g transform="translate(0, 380)">
+      <text x="0" y="0" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="500" fill="white" opacity="0.85">🚀 Generate up to 10 apps simultaneously</text>
+      <text x="0" y="40" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="500" fill="white" opacity="0.85">🎨 Professional templates & themes</text>
+      <text x="0" y="80" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="500" fill="white" opacity="0.85">🌐 Automatic GitHub integration</text>
+      <text x="0" y="120" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="500" fill="white" opacity="0.85">📱 Production-ready Cordova projects</text>
+    </g>
+  </g>
+  
+  <!-- Right side - Phone showcase -->
+  <g transform="translate(900, 400)" filter="url(#phoneShadow)">
+    <!-- Main phone -->
+    <rect x="-60" y="-120" width="120" height="240" rx="25" ry="25" fill="white" opacity="0.95"/>
+    <rect x="-45" y="-100" width="90" height="180" rx="12" ry="12" fill="#4A90E2"/>
+    <circle cx="0" cy="100" r="12" fill="white" opacity="0.8"/>
+    
+    <!-- Screen content - multiple app icons -->
+    <g opacity="0.8">
+      <!-- Row 1 -->
+      <rect x="-30" y="-80" width="15" height="15" rx="3" fill="white"/>
+      <rect x="-10" y="-80" width="15" height="15" rx="3" fill="rgba(255,255,255,0.9)"/>
+      <rect x="10" y="-80" width="15" height="15" rx="3" fill="rgba(255,255,255,0.8)"/>
+      <!-- Row 2 -->
+      <rect x="-30" y="-60" width="15" height="15" rx="3" fill="rgba(255,255,255,0.9)"/>
+      <rect x="-10" y="-60" width="15" height="15" rx="3" fill="white"/>
+      <rect x="10" y="-60" width="15" height="15" rx="3" fill="rgba(255,255,255,0.7)"/>
+      <!-- Row 3 -->
+      <rect x="-30" y="-40" width="15" height="15" rx="3" fill="rgba(255,255,255,0.8)"/>
+      <rect x="-10" y="-40" width="15" height="15" rx="3" fill="rgba(255,255,255,0.9)"/>
+      <rect x="10" y="-40" width="15" height="15" rx="3" fill="white"/>
+      <!-- Row 4 -->
+      <rect x="-30" y="-20" width="15" height="15" rx="3" fill="white"/>
+      <rect x="-10" y="-20" width="15" height="15" rx="3" fill="rgba(255,255,255,0.8)"/>
+      <rect x="10" y="-20" width="15" height="15" rx="3" fill="rgba(255,255,255,0.9)"/>
+    </g>
+  </g>
+  
+  <!-- Floating smaller phones -->
+  <g opacity="0.6" filter="url(#glow)">
+    <!-- Phone 1 -->
+    <g transform="translate(750, 200) rotate(-15)">
+      <rect x="-20" y="-35" width="40" height="70" rx="8" ry="8" fill="white" opacity="0.9"/>
+      <rect x="-15" y="-25" width="30" height="45" rx="3" ry="3" fill="#764ba2"/>
+      <circle cx="0" cy="25" r="4" fill="white" opacity="0.7"/>
+    </g>
+    
+    <!-- Phone 2 -->
+    <g transform="translate(1050, 250) rotate(10)">
+      <rect x="-18" y="-32" width="36" height="64" rx="7" ry="7" fill="white" opacity="0.9"/>
+      <rect x="-13" y="-22" width="26" height="40" rx="3" ry="3" fill="#f093fb"/>
+      <circle cx="0" cy="22" r="3" fill="white" opacity="0.7"/>
+    </g>
+    
+    <!-- Phone 3 -->
+    <g transform="translate(780, 600) rotate(-8)">
+      <rect x="-22" y="-38" width="44" height="76" rx="9" ry="9" fill="white" opacity="0.9"/>
+      <rect x="-17" y="-28" width="34" height="50" rx="4" ry="4" fill="#50C878"/>
+      <circle cx="0" cy="28" r="5" fill="white" opacity="0.7"/>
+    </g>
+  </g>
+  
+  <!-- Decorative elements -->
+  <g opacity="0.3">
+    <!-- Geometric shapes -->
+    <circle cx="1150" cy="150" r="30" fill="none" stroke="white" stroke-width="3"/>
+    <rect x="1200" y="500" width="40" height="40" rx="8" fill="none" stroke="white" stroke-width="3"/>
+    <polygon points="50,650 70,680 30,680" fill="white"/>
+    
+    <!-- Code elements -->
+    <g transform="translate(200, 700)">
+      <path d="M -20 -8 L -30 0 L -20 8" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"/>
+      <path d="M 20 -8 L 30 0 L 20 8" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="-5" cy="0" r="2" fill="white"/>
+      <circle cx="0" cy="0" r="2" fill="white"/>
+      <circle cx="5" cy="0" r="2" fill="white"/>
+    </g>
+  </g>
+  
+  <!-- Bottom tagline -->
+  <text x="640" y="750" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600" fill="white" opacity="0.8" filter="url(#textShadow)">Professional Mobile App Development Made Simple</text>
+</svg>

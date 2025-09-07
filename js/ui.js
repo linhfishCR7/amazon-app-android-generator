@@ -134,15 +134,38 @@ class UIManager {
     }
 
     // Render templates grid
-    renderTemplatesGrid(templates) {
+    renderTemplatesGrid(templates = null) {
         const grid = document.getElementById('templatesGrid');
         if (!grid) {
-            console.warn('Templates grid element not found');
+            this.showToast('Templates grid not found', 'error');
             return;
         }
 
+        // Get templates from both sources if not provided
+        if (!templates) {
+            const builtInTemplates = window.templatesManager?.getAllTemplates() || [];
+            const customTemplates = window.templateManager?.getAllTemplates() || [];
+
+            // Merge templates, avoiding duplicates
+            const templateMap = new Map();
+
+            // Add built-in templates first
+            builtInTemplates.forEach(template => {
+                templateMap.set(template.id, { ...template, isBuiltIn: true });
+            });
+
+            // Add custom templates, they can override built-in ones
+            customTemplates.forEach(template => {
+                if (!template.isBuiltIn) {
+                    templateMap.set(template.id, template);
+                }
+            });
+
+            templates = Array.from(templateMap.values());
+        }
+
         if (!templates || !Array.isArray(templates)) {
-            console.warn('Invalid templates data provided to renderTemplatesGrid');
+            this.showToast('Invalid templates data', 'error');
             return;
         }
 
@@ -153,7 +176,7 @@ class UIManager {
                 const card = this.createTemplateCard(template);
                 grid.appendChild(card);
             } catch (error) {
-                console.error('Error creating template card:', error, template);
+                this.showToast(`Error creating template card: ${template.name || 'Unknown'}`, 'error');
             }
         });
 
@@ -170,6 +193,19 @@ class UIManager {
             card.classList.add('selected');
         }
 
+        // Get usage statistics if template manager is available
+        const usage = window.templateManager ?
+            window.templateManager.getTemplateUsageStats(template.id) :
+            { usageCount: 0, successCount: 0, failureCount: 0, lastUsed: null };
+
+        // Calculate success rate
+        const successRate = usage.usageCount > 0 ?
+            Math.round((usage.successCount / usage.usageCount) * 100) : 0;
+
+        // Determine if template has been used
+        const hasBeenUsed = usage.usageCount > 0;
+        const isCustom = template.isCustom || !template.isBuiltIn;
+
         card.innerHTML = `
             <div class="template-header">
                 <div class="template-icon" style="background-color: ${template.color}">
@@ -177,24 +213,69 @@ class UIManager {
                 </div>
                 <div class="template-info">
                     <h3>${template.displayName}</h3>
-                    <div class="template-category">${template.category}</div>
+                    <div class="template-meta">
+                        <span class="template-category">${template.category || 'utilities'}</span>
+                        ${isCustom ? '<span class="custom-template-badge">Custom</span>' : ''}
+                        ${hasBeenUsed ? '<span class="used-template-badge">Used</span>' : ''}
+                    </div>
                 </div>
+                ${hasBeenUsed ? `
+                    <div class="template-usage-indicator">
+                        <div class="usage-count" title="${usage.usageCount} total uses">
+                            <i class="fas fa-rocket"></i>
+                            ${usage.usageCount}
+                        </div>
+                        <div class="success-rate ${successRate >= 80 ? 'high' : successRate >= 50 ? 'medium' : 'low'}"
+                             title="${successRate}% success rate">
+                            <i class="fas fa-chart-line"></i>
+                            ${successRate}%
+                        </div>
+                    </div>
+                ` : ''}
             </div>
             <div class="template-description">
                 ${template.description}
             </div>
-            <div class="template-features">
-                ${template.features.map(feature => 
-                    `<span class="feature-tag">${feature}</span>`
-                ).join('')}
-            </div>
-            <div class="template-footer">
-                <div class="plugin-count">
-                    <i class="fas fa-plug"></i>
-                    ${template.plugins.length} plugins
+            ${template.features && template.features.length > 0 ? `
+                <div class="template-features">
+                    ${template.features.map(feature =>
+                        `<span class="feature-tag">${feature}</span>`
+                    ).join('')}
                 </div>
-                <div class="template-checkbox">
-                    <i class="fas fa-check"></i>
+            ` : ''}
+            ${template.tags && template.tags.length > 0 ? `
+                <div class="template-tags">
+                    ${template.tags.slice(0, 3).map(tag =>
+                        `<span class="tag-chip">${tag}</span>`
+                    ).join('')}
+                    ${template.tags.length > 3 ? `<span class="tag-more">+${template.tags.length - 3}</span>` : ''}
+                </div>
+            ` : ''}
+            <div class="template-footer">
+                <div class="template-stats">
+                    <div class="plugin-count">
+                        <i class="fas fa-plug"></i>
+                        ${(template.plugins || []).length} plugins
+                    </div>
+                    ${hasBeenUsed ? `
+                        <div class="last-used" title="Last used: ${usage.lastUsed ? new Date(usage.lastUsed).toLocaleDateString() : 'Never'}">
+                            <i class="fas fa-clock"></i>
+                            ${usage.lastUsed ? window.buildStatusManager?.formatTimestamp(usage.lastUsed) || 'Recently' : 'Never'}
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="template-actions-mini">
+                    ${isCustom ? `
+                        <button class="template-action-btn edit-btn" onclick="event.stopPropagation(); ui.editTemplate('${template.id}')" title="Edit Template">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    ` : ''}
+                    <button class="template-action-btn preview-btn" onclick="event.stopPropagation(); ui.previewTemplate('${template.id}')" title="Preview Template">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <div class="template-checkbox">
+                        <i class="fas fa-check"></i>
+                    </div>
                 </div>
             </div>
         `;
@@ -705,7 +786,7 @@ class UIManager {
 
         // Check if templatesManager is available
         if (!window.templatesManager || typeof window.templatesManager.getAvailablePlugins !== 'function') {
-            console.warn('templatesManager not available yet, skipping plugin grid population');
+            // Templates manager not ready yet, will be populated later
             return;
         }
 
@@ -718,7 +799,7 @@ class UIManager {
                 </div>
             `).join('');
         } catch (error) {
-            console.error('Error populating plugins grid:', error);
+            this.showToast('Error loading plugins', 'error');
         }
     }
 
@@ -838,12 +919,12 @@ class UIManager {
         if (form) {
             form.reset();
             
-            // Set default values
-            document.getElementById('githubUsername').value = 'linhfishCR7';
+            // Set default values (user should customize these)
+            document.getElementById('githubUsername').value = '';
             document.getElementById('githubToken').value = '';
-            document.getElementById('packagePrefix').value = 'com.lehau';
-            document.getElementById('authorName').value = 'LinhFish Development Team';
-            document.getElementById('authorEmail').value = 'dev@linhfish.com';
+            document.getElementById('packagePrefix').value = 'com.yourcompany';
+            document.getElementById('authorName').value = 'Your Name';
+            document.getElementById('authorEmail').value = 'your.email@example.com';
             document.getElementById('outputDirectory').value = './generated-apps';
             document.getElementById('androidMinSdk').value = '33';
             document.getElementById('enableBuildPreparation').checked = true;
@@ -961,7 +1042,6 @@ class UIManager {
     // Clear field error
     clearFieldError(field) {
         if (!field || !field.classList) {
-            console.warn('Invalid field element passed to clearFieldError');
             return;
         }
 
@@ -1114,6 +1194,972 @@ class UIManager {
             codemagicWorkflowId: document.getElementById('codemagicWorkflowId').value,
             codemagicBranch: document.getElementById('codemagicBranch').value
         };
+    }
+
+    // Show create template modal
+    showCreateTemplate(templateData = null) {
+        const isEdit = !!templateData;
+        const title = isEdit ? 'Edit Template' : 'Create Custom Template';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay create-template-modal';
+        modal.innerHTML = `
+            <div class="modal-content large-modal">
+                <div class="modal-header">
+                    <h3><i class="fas fa-plus"></i> ${title}</h3>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="templateForm" class="template-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="templateName">Template Name *</label>
+                                <input type="text" id="templateName" required placeholder="e.g., weather-tracker"
+                                       value="${templateData?.name || ''}" ${isEdit ? 'readonly' : ''}>
+                                <small>Internal identifier (lowercase, no spaces)</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="templateDisplayName">Display Name *</label>
+                                <input type="text" id="templateDisplayName" required placeholder="e.g., Weather Tracker"
+                                       value="${templateData?.displayName || ''}">
+                                <small>User-friendly name shown in UI</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="templateDescription">Description *</label>
+                                <textarea id="templateDescription" required placeholder="Describe what this app template does..."
+                                          rows="3">${templateData?.description || ''}</textarea>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="templateIcon">Icon *</label>
+                                <input type="text" id="templateIcon" required placeholder="🌤️" maxlength="2"
+                                       value="${templateData?.icon || ''}">
+                                <small>Emoji or single character</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="templateColor">Color *</label>
+                                <input type="color" id="templateColor" required
+                                       value="${templateData?.color || '#667eea'}">
+                                <small>Background color for template card</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="templateCategory">Category</label>
+                                <select id="templateCategory">
+                                    ${window.templateManager?.categories.map(cat =>
+                                        `<option value="${cat}" ${templateData?.category === cat ? 'selected' : ''}>${cat}</option>`
+                                    ).join('') || ''}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="templateTags">Tags</label>
+                                <input type="text" id="templateTags" placeholder="weather, outdoor, monitoring"
+                                       value="${templateData?.tags?.join(', ') || ''}">
+                                <small>Comma-separated tags for organization</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="templateAuthor">Author</label>
+                                <input type="text" id="templateAuthor" placeholder="Your name"
+                                       value="${templateData?.author || ''}">
+                            </div>
+                        </div>
+                        <div class="form-section">
+                            <h4><i class="fas fa-plug"></i> Cordova Plugins</h4>
+                            <div class="plugins-container">
+                                <div class="available-plugins">
+                                    <h5>Available Plugins</h5>
+                                    <div class="plugins-list" id="availablePlugins">
+                                        ${this.renderAvailablePlugins(templateData?.plugins || [])}
+                                    </div>
+                                </div>
+                                <div class="selected-plugins">
+                                    <h5>Selected Plugins</h5>
+                                    <div class="plugins-list" id="selectedPlugins">
+                                        ${this.renderSelectedPlugins(templateData?.plugins || [])}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="ui.saveTemplate(${isEdit ? `'${templateData?.id}'` : 'null'})">
+                        <i class="fas fa-save"></i> ${isEdit ? 'Update' : 'Create'} Template
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+
+        // Setup plugin selection
+        this.setupPluginSelection();
+    }
+
+    // Render available plugins
+    renderAvailablePlugins(selectedPlugins = []) {
+        const commonPlugins = [
+            { id: 'cordova-plugin-device', name: 'Device Information' },
+            { id: 'cordova-plugin-geolocation', name: 'Geolocation' },
+            { id: 'cordova-plugin-camera', name: 'Camera' },
+            { id: 'cordova-plugin-file', name: 'File System' },
+            { id: 'cordova-plugin-network-information', name: 'Network Information' },
+            { id: 'cordova-plugin-statusbar', name: 'Status Bar' },
+            { id: 'cordova-plugin-splashscreen', name: 'Splash Screen' },
+            { id: 'cordova-plugin-vibration', name: 'Vibration' },
+            { id: 'cordova-plugin-dialogs', name: 'Notification Dialogs' },
+            { id: 'cordova-plugin-inappbrowser', name: 'In-App Browser' }
+        ];
+
+        return commonPlugins.map(plugin => `
+            <div class="plugin-item ${selectedPlugins.includes(plugin.id) ? 'selected' : ''}"
+                 data-plugin-id="${plugin.id}" onclick="ui.togglePlugin('${plugin.id}')">
+                <span class="plugin-name">${plugin.name}</span>
+                <span class="plugin-id">${plugin.id}</span>
+            </div>
+        `).join('');
+    }
+
+    // Render selected plugins
+    renderSelectedPlugins(selectedPlugins = []) {
+        if (selectedPlugins.length === 0) {
+            return '<div class="empty-plugins">No plugins selected</div>';
+        }
+
+        return selectedPlugins.map(pluginId => `
+            <div class="plugin-item selected" data-plugin-id="${pluginId}">
+                <span class="plugin-name">${pluginId}</span>
+                <button class="remove-plugin" onclick="ui.removePlugin('${pluginId}')" title="Remove Plugin">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    // Setup plugin selection functionality
+    setupPluginSelection() {
+        // Plugin selection is handled by onclick events in the HTML
+    }
+
+    // Toggle plugin selection
+    togglePlugin(pluginId) {
+        const availableContainer = document.getElementById('availablePlugins');
+        const selectedContainer = document.getElementById('selectedPlugins');
+        const pluginItem = availableContainer.querySelector(`[data-plugin-id="${pluginId}"]`);
+
+        if (pluginItem.classList.contains('selected')) {
+            // Remove from selection
+            pluginItem.classList.remove('selected');
+            this.removePluginFromSelected(pluginId);
+        } else {
+            // Add to selection
+            pluginItem.classList.add('selected');
+            this.addPluginToSelected(pluginId);
+        }
+    }
+
+    // Add plugin to selected list
+    addPluginToSelected(pluginId) {
+        const selectedContainer = document.getElementById('selectedPlugins');
+        const emptyState = selectedContainer.querySelector('.empty-plugins');
+
+        if (emptyState) {
+            emptyState.remove();
+        }
+
+        const pluginItem = document.createElement('div');
+        pluginItem.className = 'plugin-item selected';
+        pluginItem.setAttribute('data-plugin-id', pluginId);
+        pluginItem.innerHTML = `
+            <span class="plugin-name">${pluginId}</span>
+            <button class="remove-plugin" onclick="ui.removePlugin('${pluginId}')" title="Remove Plugin">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+
+        selectedContainer.appendChild(pluginItem);
+    }
+
+    // Remove plugin from selected list
+    removePluginFromSelected(pluginId) {
+        const selectedContainer = document.getElementById('selectedPlugins');
+        const pluginItem = selectedContainer.querySelector(`[data-plugin-id="${pluginId}"]`);
+
+        if (pluginItem) {
+            pluginItem.remove();
+        }
+
+        // Show empty state if no plugins selected
+        if (selectedContainer.children.length === 0) {
+            selectedContainer.innerHTML = '<div class="empty-plugins">No plugins selected</div>';
+        }
+    }
+
+    // Remove plugin (called from selected list)
+    removePlugin(pluginId) {
+        // Remove from selected list
+        this.removePluginFromSelected(pluginId);
+
+        // Update available list
+        const availableContainer = document.getElementById('availablePlugins');
+        const pluginItem = availableContainer.querySelector(`[data-plugin-id="${pluginId}"]`);
+        if (pluginItem) {
+            pluginItem.classList.remove('selected');
+        }
+    }
+
+    // Save template (create or update)
+    saveTemplate(templateId = null) {
+        try {
+            // Get form data
+            const formData = {
+                name: document.getElementById('templateName').value.trim(),
+                displayName: document.getElementById('templateDisplayName').value.trim(),
+                description: document.getElementById('templateDescription').value.trim(),
+                icon: document.getElementById('templateIcon').value.trim(),
+                color: document.getElementById('templateColor').value,
+                category: document.getElementById('templateCategory').value,
+                tags: document.getElementById('templateTags').value.split(',').map(tag => tag.trim()).filter(Boolean),
+                author: document.getElementById('templateAuthor').value.trim() || 'User',
+                plugins: this.getSelectedPlugins()
+            };
+
+            // Validate required fields
+            if (!formData.name || !formData.displayName || !formData.description || !formData.icon) {
+                alert('Please fill in all required fields.');
+                return;
+            }
+
+            // Create or update template
+            let result;
+            if (templateId) {
+                result = window.templateManager.updateTemplate(templateId, formData);
+                this.showToast('Template updated successfully!', 'success');
+            } else {
+                result = window.templateManager.createTemplate(formData);
+                this.showToast('Template created successfully!', 'success');
+            }
+
+            // Close modal and refresh templates
+            document.querySelector('.create-template-modal').remove();
+            this.renderTemplatesGrid();
+
+        } catch (error) {
+            console.error('Failed to save template:', error);
+            alert('Failed to save template: ' + error.message);
+        }
+    }
+
+    // Get selected plugins from the form
+    getSelectedPlugins() {
+        const selectedContainer = document.getElementById('selectedPlugins');
+        const pluginItems = selectedContainer.querySelectorAll('.plugin-item[data-plugin-id]');
+        return Array.from(pluginItems).map(item => item.getAttribute('data-plugin-id'));
+    }
+
+    // Show template manager modal
+    showTemplateManager() {
+        if (!window.templateManager) {
+            alert('Template manager not available.');
+            return;
+        }
+
+        const templates = window.templateManager.getAllTemplates();
+        const stats = window.templateManager.getTemplateStatistics();
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay template-manager-modal';
+        modal.innerHTML = `
+            <div class="modal-content extra-large-modal">
+                <div class="modal-header">
+                    <h3><i class="fas fa-cog"></i> Template Manager</h3>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="template-manager-stats">
+                        <div class="stat-item">
+                            <span class="stat-value">${stats.total}</span>
+                            <span class="stat-label">Total Templates</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${stats.builtIn}</span>
+                            <span class="stat-label">Built-in</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${stats.custom}</span>
+                            <span class="stat-label">Custom</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${stats.totalUsage}</span>
+                            <span class="stat-label">Total Usage</span>
+                        </div>
+                    </div>
+                    <div class="template-manager-controls">
+                        <div class="search-controls">
+                            <input type="text" id="templateSearch" placeholder="Search templates..."
+                                   onkeyup="ui.filterTemplates(this.value)">
+                            <select id="categoryFilter" onchange="ui.filterTemplatesByCategory(this.value)">
+                                <option value="">All Categories</option>
+                                ${window.templateManager.categories.map(cat =>
+                                    `<option value="${cat}">${cat}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div class="action-controls">
+                            <button class="btn btn-success" onclick="ui.showCreateTemplate()">
+                                <i class="fas fa-plus"></i> Create New
+                            </button>
+                            <button class="btn btn-info" onclick="ui.importTemplates()">
+                                <i class="fas fa-upload"></i> Import
+                            </button>
+                            <button class="btn btn-warning" onclick="ui.exportTemplates()">
+                                <i class="fas fa-download"></i> Export
+                            </button>
+                        </div>
+                    </div>
+                    <div class="templates-manager-list" id="templatesManagerList">
+                        ${this.renderTemplateManagerList(templates)}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+    }
+
+    // Render template manager list
+    renderTemplateManagerList(templates) {
+        if (templates.length === 0) {
+            return '<div class="empty-state">No templates found</div>';
+        }
+
+        return templates.map(template => {
+            const usage = window.templateManager.getTemplateUsageStats(template.id);
+            const successRate = usage.usageCount > 0 ? Math.round((usage.successCount / usage.usageCount) * 100) : 0;
+
+            return `
+                <div class="template-manager-item" data-template-id="${template.id}">
+                    <div class="template-info">
+                        <div class="template-header">
+                            <div class="template-icon" style="background-color: ${template.color}">
+                                ${template.icon}
+                            </div>
+                            <div class="template-details">
+                                <h4>${template.displayName}</h4>
+                                <p>${template.description}</p>
+                                <div class="template-meta">
+                                    <span class="template-category">${template.category}</span>
+                                    ${template.isBuiltIn ? '<span class="built-in-badge">Built-in</span>' : '<span class="custom-badge">Custom</span>'}
+                                    ${template.tags && template.tags.length > 0 ?
+                                        `<span class="template-tags">${template.tags.join(', ')}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="template-usage">
+                            <div class="usage-stat">
+                                <span class="usage-value">${usage.usageCount}</span>
+                                <span class="usage-label">Uses</span>
+                            </div>
+                            <div class="usage-stat">
+                                <span class="usage-value">${successRate}%</span>
+                                <span class="usage-label">Success</span>
+                            </div>
+                            <div class="usage-stat">
+                                <span class="usage-value">${usage.lastUsed ? window.buildStatusManager?.formatTimestamp(usage.lastUsed) || 'Never' : 'Never'}</span>
+                                <span class="usage-label">Last Used</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="template-actions">
+                        ${!template.isBuiltIn ? `
+                            <button class="btn btn-sm btn-primary" onclick="ui.editTemplate('${template.id}')" title="Edit Template">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-sm btn-info" onclick="ui.duplicateTemplate('${template.id}')" title="Duplicate Template">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button class="btn btn-sm btn-success" onclick="ui.previewTemplate('${template.id}')" title="Preview Template">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        ${!template.isBuiltIn ? `
+                            <button class="btn btn-sm btn-danger" onclick="ui.deleteTemplate('${template.id}')" title="Delete Template">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Edit template
+    editTemplate(templateId) {
+        const template = window.templateManager.getTemplateById(templateId);
+        if (!template) {
+            alert('Template not found.');
+            return;
+        }
+
+        // Close template manager modal
+        document.querySelector('.template-manager-modal').remove();
+
+        // Show edit template modal
+        this.showCreateTemplate(template);
+    }
+
+    // Duplicate template
+    duplicateTemplate(templateId) {
+        try {
+            const newName = prompt('Enter name for the duplicated template:');
+            if (!newName) return;
+
+            const duplicatedTemplate = window.templateManager.duplicateTemplate(templateId, newName);
+            this.showToast('Template duplicated successfully!', 'success');
+
+            // Refresh template manager if open
+            const managerModal = document.querySelector('.template-manager-modal');
+            if (managerModal) {
+                const listContainer = document.getElementById('templatesManagerList');
+                if (listContainer) {
+                    listContainer.innerHTML = this.renderTemplateManagerList(window.templateManager.getAllTemplates());
+                }
+            }
+
+            // Refresh main templates grid
+            this.renderTemplatesGrid();
+
+        } catch (error) {
+            console.error('Failed to duplicate template:', error);
+            alert('Failed to duplicate template: ' + error.message);
+        }
+    }
+
+    // Delete template
+    deleteTemplate(templateId) {
+        const template = window.templateManager.getTemplateById(templateId);
+        if (!template) {
+            alert('Template not found.');
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete the template "${template.displayName}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            window.templateManager.deleteTemplate(templateId);
+            this.showToast('Template deleted successfully!', 'success');
+
+            // Refresh template manager if open
+            const managerModal = document.querySelector('.template-manager-modal');
+            if (managerModal) {
+                const listContainer = document.getElementById('templatesManagerList');
+                if (listContainer) {
+                    listContainer.innerHTML = this.renderTemplateManagerList(window.templateManager.getAllTemplates());
+                }
+            }
+
+            // Refresh main templates grid
+            this.renderTemplatesGrid();
+
+        } catch (error) {
+            console.error('Failed to delete template:', error);
+            alert('Failed to delete template: ' + error.message);
+        }
+    }
+
+    // Preview template
+    previewTemplate(templateId) {
+        const template = window.templateManager.getTemplateById(templateId);
+        if (!template) {
+            alert('Template not found.');
+            return;
+        }
+
+        const usage = window.templateManager.getTemplateUsageStats(templateId);
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay template-preview-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-eye"></i> Template Preview</h3>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="template-preview">
+                        <div class="template-preview-header">
+                            <div class="template-icon" style="background-color: ${template.color}">
+                                ${template.icon}
+                            </div>
+                            <div class="template-info">
+                                <h2>${template.displayName}</h2>
+                                <p>${template.description}</p>
+                            </div>
+                        </div>
+                        <div class="template-preview-details">
+                            <div class="detail-section">
+                                <h4>Basic Information</h4>
+                                <div class="detail-grid">
+                                    <div class="detail-item">
+                                        <label>ID:</label>
+                                        <span>${template.id}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label>Category:</label>
+                                        <span>${template.category}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label>Author:</label>
+                                        <span>${template.author}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label>Version:</label>
+                                        <span>${template.version}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            ${template.tags && template.tags.length > 0 ? `
+                                <div class="detail-section">
+                                    <h4>Tags</h4>
+                                    <div class="tags-list">
+                                        ${template.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            ${template.plugins && template.plugins.length > 0 ? `
+                                <div class="detail-section">
+                                    <h4>Cordova Plugins</h4>
+                                    <div class="plugins-preview">
+                                        ${template.plugins.map(plugin => `<div class="plugin-preview">${plugin}</div>`).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            <div class="detail-section">
+                                <h4>Usage Statistics</h4>
+                                <div class="usage-stats">
+                                    <div class="usage-stat">
+                                        <span class="stat-value">${usage.usageCount}</span>
+                                        <span class="stat-label">Total Uses</span>
+                                    </div>
+                                    <div class="usage-stat">
+                                        <span class="stat-value">${usage.successCount}</span>
+                                        <span class="stat-label">Successful Builds</span>
+                                    </div>
+                                    <div class="usage-stat">
+                                        <span class="stat-value">${usage.failureCount}</span>
+                                        <span class="stat-label">Failed Builds</span>
+                                    </div>
+                                    <div class="usage-stat">
+                                        <span class="stat-value">${usage.lastUsed ? window.buildStatusManager?.formatTimestamp(usage.lastUsed) || 'Never' : 'Never'}</span>
+                                        <span class="stat-label">Last Used</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
+                    ${!template.isBuiltIn ? `
+                        <button class="btn btn-primary" onclick="ui.editTemplate('${template.id}'); this.closest('.modal-overlay').remove();">
+                            <i class="fas fa-edit"></i> Edit Template
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+    }
+
+    // Filter templates in manager
+    filterTemplates(searchTerm) {
+        const templates = searchTerm ?
+            window.templateManager.searchTemplates(searchTerm) :
+            window.templateManager.getAllTemplates();
+
+        const listContainer = document.getElementById('templatesManagerList');
+        if (listContainer) {
+            listContainer.innerHTML = this.renderTemplateManagerList(templates);
+        }
+    }
+
+    // Filter templates by category
+    filterTemplatesByCategory(category) {
+        const templates = category ?
+            window.templateManager.getTemplatesByCategory(category) :
+            window.templateManager.getAllTemplates();
+
+        const listContainer = document.getElementById('templatesManagerList');
+        if (listContainer) {
+            listContainer.innerHTML = this.renderTemplateManagerList(templates);
+        }
+    }
+
+    // Export templates
+    exportTemplates() {
+        try {
+            const exportData = window.templateManager.exportTemplates(false, true);
+            const blob = new Blob([exportData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cordova-templates-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.showToast('Templates exported successfully!', 'success');
+        } catch (error) {
+            console.error('Failed to export templates:', error);
+            alert('Failed to export templates: ' + error.message);
+        }
+    }
+
+    // Import templates
+    importTemplates() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const options = {
+                        includeBuiltIn: false,
+                        overwriteExisting: confirm('Overwrite existing templates with same names?'),
+                        createCopies: true,
+                        includeUsageStats: true
+                    };
+
+                    const results = window.templateManager.importTemplates(e.target.result, options);
+
+                    let message = `Import completed!\n`;
+                    message += `Imported: ${results.imported} templates\n`;
+                    message += `Skipped: ${results.skipped} templates\n`;
+                    if (results.errors.length > 0) {
+                        message += `Errors: ${results.errors.length}\n`;
+                        message += results.errors.slice(0, 3).join('\n');
+                    }
+
+                    alert(message);
+
+                    // Refresh template manager if open
+                    const managerModal = document.querySelector('.template-manager-modal');
+                    if (managerModal) {
+                        const listContainer = document.getElementById('templatesManagerList');
+                        if (listContainer) {
+                            listContainer.innerHTML = this.renderTemplateManagerList(window.templateManager.getAllTemplates());
+                        }
+                    }
+
+                    // Refresh main templates grid
+                    this.renderTemplatesGrid();
+
+                } catch (error) {
+                    console.error('Failed to import templates:', error);
+                    alert('Failed to import templates: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+    // Show random app generator modal
+    showRandomGenerator() {
+        if (!window.templateManager) {
+            alert('Template manager not available.');
+            return;
+        }
+
+        const categories = window.templateManager.categories;
+        const templates = window.templateManager.getAllTemplates();
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay random-generator-modal';
+        modal.innerHTML = `
+            <div class="modal-content large-modal">
+                <div class="modal-header">
+                    <h3><i class="fas fa-random"></i> Random App Generator</h3>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="random-generator-form">
+                        <div class="form-section">
+                            <h4><i class="fas fa-sliders-h"></i> Generation Settings</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="randomCount">Number of Apps</label>
+                                    <input type="number" id="randomCount" min="1" max="50" value="5">
+                                    <small>How many random apps to generate (1-50)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="ensureUnique" checked>
+                                        Ensure Unique Templates
+                                    </label>
+                                    <small>Each app uses a different template</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4><i class="fas fa-filter"></i> Template Selection</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="includeBuiltIn" checked>
+                                        Include Built-in Templates
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="includeCustom" checked>
+                                        Include Custom Templates
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="selectedCategories">Categories (optional)</label>
+                                <div class="categories-selection">
+                                    ${categories.map(category => `
+                                        <label class="category-checkbox">
+                                            <input type="checkbox" name="categories" value="${category}">
+                                            ${category}
+                                        </label>
+                                    `).join('')}
+                                </div>
+                                <small>Leave empty to include all categories</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="excludeTemplates">Exclude Templates (optional)</label>
+                                <select id="excludeTemplates" multiple size="6">
+                                    ${templates.map(template => `
+                                        <option value="${template.id}">${template.displayName}</option>
+                                    `).join('')}
+                                </select>
+                                <small>Hold Ctrl/Cmd to select multiple templates to exclude</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="random-preview-section" id="randomPreviewSection" style="display: none;">
+                        <h4><i class="fas fa-eye"></i> Generated Apps Preview</h4>
+                        <div class="random-apps-preview" id="randomAppsPreview">
+                            <!-- Generated apps will appear here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+                    <button type="button" class="btn btn-warning" onclick="ui.generateRandomApps()">
+                        <i class="fas fa-dice"></i> Generate Preview
+                    </button>
+                    <button type="button" class="btn btn-success" id="createRandomAppsBtn" style="display: none;" onclick="ui.createRandomApps()">
+                        <i class="fas fa-plus"></i> Create All Apps
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+    }
+
+    // Generate random apps preview
+    generateRandomApps() {
+        try {
+            // Get form data
+            const count = parseInt(document.getElementById('randomCount').value);
+            const ensureUnique = document.getElementById('ensureUnique').checked;
+            const includeBuiltIn = document.getElementById('includeBuiltIn').checked;
+            const includeCustom = document.getElementById('includeCustom').checked;
+
+            // Get selected categories
+            const categoryCheckboxes = document.querySelectorAll('input[name="categories"]:checked');
+            const selectedCategories = Array.from(categoryCheckboxes).map(cb => cb.value);
+
+            // Get excluded templates
+            const excludeSelect = document.getElementById('excludeTemplates');
+            const excludeTemplates = Array.from(excludeSelect.selectedOptions).map(option => option.value);
+
+            // Validate settings
+            if (!includeBuiltIn && !includeCustom) {
+                alert('Please select at least one template type (Built-in or Custom).');
+                return;
+            }
+
+            if (count < 1 || count > 50) {
+                alert('Number of apps must be between 1 and 50.');
+                return;
+            }
+
+            // Generate random apps
+            const options = {
+                count,
+                categories: selectedCategories.length > 0 ? selectedCategories : null,
+                excludeTemplates,
+                includeBuiltIn,
+                includeCustom,
+                ensureUnique
+            };
+
+            const randomApps = window.templateManager.generateRandomApps(options);
+
+            if (randomApps.length === 0) {
+                alert('No apps could be generated with the current settings. Try adjusting your criteria.');
+                return;
+            }
+
+            // Show preview
+            this.showRandomAppsPreview(randomApps);
+
+        } catch (error) {
+            console.error('Failed to generate random apps:', error);
+            alert('Failed to generate random apps: ' + error.message);
+        }
+    }
+
+    // Show random apps preview
+    showRandomAppsPreview(randomApps) {
+        const previewSection = document.getElementById('randomPreviewSection');
+        const previewContainer = document.getElementById('randomAppsPreview');
+        const createButton = document.getElementById('createRandomAppsBtn');
+
+        // Store generated apps for later creation
+        this.generatedRandomApps = randomApps;
+
+        previewContainer.innerHTML = randomApps.map((app, index) => `
+            <div class="random-app-preview">
+                <div class="app-preview-header">
+                    <div class="app-icon" style="background-color: ${app.template.color}">
+                        ${app.template.icon}
+                    </div>
+                    <div class="app-info">
+                        <h5>${app.generatedName}</h5>
+                        <p class="app-package">${app.packageName}</p>
+                        <p class="app-description">${app.description}</p>
+                    </div>
+                </div>
+                <div class="app-preview-details">
+                    <div class="detail-item">
+                        <label>Template:</label>
+                        <span>${app.template.displayName}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Category:</label>
+                        <span>${app.template.category}</span>
+                    </div>
+                    ${app.template.plugins && app.template.plugins.length > 0 ? `
+                        <div class="detail-item">
+                            <label>Plugins:</label>
+                            <span>${app.template.plugins.length} plugins</span>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="app-preview-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="ui.regenerateRandomApp(${index})">
+                        <i class="fas fa-redo"></i> Regenerate
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="ui.removeRandomApp(${index})">
+                        <i class="fas fa-times"></i> Remove
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        previewSection.style.display = 'block';
+        createButton.style.display = 'inline-block';
+    }
+
+    // Regenerate a specific random app
+    regenerateRandomApp(index) {
+        if (!this.generatedRandomApps || !this.generatedRandomApps[index]) return;
+
+        const currentApp = this.generatedRandomApps[index];
+        const newApp = window.templateManager.generateRandomAppData(currentApp.template, index + 1);
+
+        this.generatedRandomApps[index] = newApp;
+        this.showRandomAppsPreview(this.generatedRandomApps);
+    }
+
+    // Remove a random app from preview
+    removeRandomApp(index) {
+        if (!this.generatedRandomApps) return;
+
+        this.generatedRandomApps.splice(index, 1);
+
+        if (this.generatedRandomApps.length === 0) {
+            document.getElementById('randomPreviewSection').style.display = 'none';
+            document.getElementById('createRandomAppsBtn').style.display = 'none';
+        } else {
+            this.showRandomAppsPreview(this.generatedRandomApps);
+        }
+    }
+
+    // Create all random apps
+    createRandomApps() {
+        if (!this.generatedRandomApps || this.generatedRandomApps.length === 0) {
+            alert('No apps to create. Please generate a preview first.');
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to create ${this.generatedRandomApps.length} random apps? This will start the generation process.`)) {
+            return;
+        }
+
+        try {
+            // Close the random generator modal
+            document.querySelector('.random-generator-modal').remove();
+
+            // Select the templates in the main UI
+            this.selectedTemplates.clear();
+            this.generatedRandomApps.forEach(app => {
+                this.selectedTemplates.add(app.template.id);
+            });
+
+            // Update the preview with the selected templates
+            this.updatePreview();
+
+            // Show success message
+            this.showToast(`${this.generatedRandomApps.length} random apps selected for generation!`, 'success');
+
+            // Clear stored random apps
+            this.generatedRandomApps = null;
+
+        } catch (error) {
+            console.error('Failed to create random apps:', error);
+            alert('Failed to create random apps: ' + error.message);
+        }
     }
 }
 

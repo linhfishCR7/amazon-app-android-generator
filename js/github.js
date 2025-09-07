@@ -102,9 +102,12 @@ class GitHubIntegration {
 
             // Verify the username matches
             if (userData.login.toLowerCase() !== username.toLowerCase()) {
-                console.warn(`Username mismatch: provided "${username}", token belongs to "${userData.login}"`);
-                // Use the actual username from the token
+                // Use the actual username from the token for consistency
                 username = userData.login;
+                // Notify user of the correction if needed
+                if (window.showStatus) {
+                    window.showStatus(`Using GitHub username: ${username}`, 'info');
+                }
             }
 
             this.isAuthenticated = true;
@@ -247,7 +250,10 @@ class GitHubIntegration {
                     });
 
                 } catch (error) {
-                    console.warn(`Failed to upload ${filePath}:`, error.message);
+                    // Log upload failure but continue with other files
+                    if (window.showStatus) {
+                        window.showStatus(`Failed to upload ${filePath}: ${error.message}`, 'warning');
+                    }
                     // Continue with other files
                 }
             }
@@ -514,7 +520,7 @@ echo "3. Test on devices and deploy to app stores"
 
             return response.ok;
         } catch (error) {
-            console.warn(`Error checking repository ${repoName}:`, error);
+            // Repository check failed, assume it doesn't exist
             return false;
         }
     }

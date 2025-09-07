@@ -3,10 +3,10 @@
   "timestamp": "2024-01-20T10:30:00.000Z",
   "description": "Sample configuration for Cordova App Generator",
   "global": {
-    "githubUsername": "linhfishCR7",
-    "packagePrefix": "com.linhfish",
-    "authorName": "LinhFish Development Team",
-    "authorEmail": "dev@linhfish.com",
+    "githubUsername": "your-github-username",
+    "packagePrefix": "com.yourcompany",
+    "authorName": "Your Name",
+    "authorEmail": "your.email@example.com",
     "outputDirectory": "./generated-apps",
     "androidMinSdk": "33"
   },

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="114" height="114" viewBox="0 0 114 114" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f093fb;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="phoneGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f8fafc;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="screenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#357ABD;stop-opacity:1" />
+    </linearGradient>
+    <pattern id="dotPattern" patternUnits="userSpaceOnUse" width="20" height="20">
+      <circle cx="10" cy="10" r="1" fill="rgba(255,255,255,0.08)"/>
+    </pattern>
+    <filter id="phoneShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.25)"/>
+    </filter>
+    <filter id="textShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="rgba(0,0,0,0.4)"/>
+    </filter>
+  </defs>
+  
+  <!-- Background with rounded corners -->
+  <rect width="114" height="114" rx="20" ry="20" fill="url(#backgroundGradient)"/>
+  
+  <!-- Subtle pattern overlay -->
+  <rect width="114" height="114" rx="20" ry="20" fill="url(#dotPattern)"/>
+  
+  <!-- Central mobile phone -->
+  <g transform="translate(57, 45)" filter="url(#phoneShadow)">
+    <!-- Phone body -->
+    <rect x="-16" y="-22" width="32" height="44" rx="6" ry="6" fill="url(#phoneGradient)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <!-- Screen -->
+    <rect x="-12" y="-16" width="24" height="32" rx="3" ry="3" fill="url(#screenGradient)"/>
+    <!-- Home button -->
+    <circle cx="0" cy="18" r="3" fill="white" opacity="0.8"/>
+    <!-- Screen content - app grid -->
+    <g opacity="0.7">
+      <rect x="-8" y="-12" width="4" height="4" rx="1" fill="white"/>
+      <rect x="-2" y="-12" width="4" height="4" rx="1" fill="rgba(255,255,255,0.8)"/>
+      <rect x="4" y="-12" width="4" height="4" rx="1" fill="rgba(255,255,255,0.6)"/>
+      <rect x="-8" y="-6" width="4" height="4" rx="1" fill="rgba(255,255,255,0.8)"/>
+      <rect x="-2" y="-6" width="4" height="4" rx="1" fill="white"/>
+      <rect x="4" y="-6" width="4" height="4" rx="1" fill="rgba(255,255,255,0.7)"/>
+      <rect x="-8" y="0" width="4" height="4" rx="1" fill="rgba(255,255,255,0.6)"/>
+      <rect x="-2" y="0" width="4" height="4" rx="1" fill="rgba(255,255,255,0.9)"/>
+      <rect x="4" y="0" width="4" height="4" rx="1" fill="white"/>
+    </g>
+  </g>
+  
+  <!-- Floating elements -->
+  <g opacity="0.5">
+    <!-- Gear icon -->
+    <g transform="translate(25, 25)">
+      <circle cx="0" cy="0" r="8" fill="none" stroke="white" stroke-width="2"/>
+      <circle cx="0" cy="0" r="3" fill="white"/>
+      <rect x="-1" y="-10" width="2" height="4" fill="white"/>
+      <rect x="-1" y="6" width="2" height="4" fill="white"/>
+      <rect x="-10" y="-1" width="4" height="2" fill="white"/>
+      <rect x="6" y="-1" width="4" height="2" fill="white"/>
+    </g>
+    
+    <!-- Code brackets -->
+    <g transform="translate(89, 89)">
+      <path d="M -6 -4 L -8 0 L -6 4" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      <path d="M 6 -4 L 8 0 L 6 4" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    </g>
+  </g>
+  
+  <!-- Main text -->
+  <text x="57" y="85" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="white" filter="url(#textShadow)">CAG</text>
+  
+  <!-- Bottom accent -->
+  <rect x="20" y="100" width="74" height="2" rx="1" fill="rgba(255,255,255,0.3)"/>
+</svg>
