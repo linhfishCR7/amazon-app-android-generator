@@ -12,6 +12,29 @@ class CodemagicIntegration {
         this.eventListeners = new Map();
         this.rateLimitRemaining = 5000;
         this.rateLimitReset = null;
+
+        // Try to restore authentication from localStorage
+        this.restoreAuthentication();
+    }
+
+    // Restore authentication from localStorage
+    async restoreAuthentication() {
+        if (typeof localStorage === 'undefined') return;
+
+        const storedToken = localStorage.getItem('codemagic_token');
+        const storedTeamId = localStorage.getItem('codemagic_team_id');
+
+        if (storedToken) {
+            try {
+                await this.authenticate(storedToken, storedTeamId);
+                console.log('Codemagic authentication restored from localStorage');
+            } catch (error) {
+                console.warn('Failed to restore Codemagic authentication:', error.message);
+                // Clear invalid stored credentials
+                localStorage.removeItem('codemagic_token');
+                localStorage.removeItem('codemagic_team_id');
+            }
+        }
     }
 
     // Event system
@@ -33,45 +56,97 @@ class CodemagicIntegration {
         try {
             this.emit('auth:start', { apiToken: apiToken.substring(0, 8) + '...' });
 
-            // Validate token by fetching applications
+            // Validate API token format first
+            if (!apiToken || typeof apiToken !== 'string' || apiToken.length < 20) {
+                throw new Error('Invalid API token format. Please provide a valid Codemagic API token.');
+            }
+
+            // Clean the token (remove any whitespace)
+            const cleanToken = apiToken.trim();
+
+            // Test authentication with a simple API call
             const response = await fetch(`${this.apiBase}/apps`, {
                 method: 'GET',
                 headers: {
-                    'x-auth-token': apiToken,
-                    'Content-Type': 'application/json'
+                    'x-auth-token': cleanToken,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 }
             });
 
+            // Handle different response statuses
             if (!response.ok) {
+                let errorMessage = 'Authentication failed';
+
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorMessage;
+                } catch (e) {
+                    // If JSON parsing fails, use status text
+                    errorMessage = response.statusText || errorMessage;
+                }
+
                 if (response.status === 401) {
-                    throw new Error('Invalid API token. Please check your Codemagic API token.');
+                    throw new Error(`Invalid API token: ${errorMessage}. Please check your Codemagic API token in your account settings.`);
+                } else if (response.status === 403) {
+                    throw new Error(`Access forbidden: ${errorMessage}. Please check your API token permissions.`);
                 } else if (response.status === 429) {
                     throw new Error('Rate limit exceeded. Please try again later.');
+                } else if (response.status >= 500) {
+                    throw new Error(`Codemagic server error (${response.status}): ${errorMessage}. Please try again later.`);
                 }
-                throw new Error(`Authentication failed: ${response.status} ${response.statusText}`);
+
+                throw new Error(`Authentication failed (${response.status}): ${errorMessage}`);
             }
 
             // Update rate limit info
             this.updateRateLimit(response);
 
-            const data = await response.json();
-            
+            // Parse response data
+            let data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                throw new Error('Invalid response from Codemagic API. Please try again.');
+            }
+
+            // Set authentication state
             this.isAuthenticated = true;
-            this.apiToken = apiToken;
+            this.apiToken = cleanToken;
             this.teamId = teamId;
 
-            this.emit('auth:success', { 
-                apiToken: apiToken.substring(0, 8) + '...', 
+            // Store token in localStorage for persistence (optional)
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('codemagic_token', cleanToken);
+                if (teamId) {
+                    localStorage.setItem('codemagic_team_id', teamId);
+                }
+            }
+
+            this.emit('auth:success', {
+                apiToken: cleanToken.substring(0, 8) + '...',
                 teamId,
-                appsCount: data.applications ? data.applications.length : 0
+                appsCount: data.applications ? data.applications.length : 0,
+                rateLimit: this.getRateLimitStatus()
             });
-            
-            return true;
+
+            return {
+                success: true,
+                appsCount: data.applications ? data.applications.length : 0,
+                rateLimit: this.getRateLimitStatus()
+            };
 
         } catch (error) {
             this.isAuthenticated = false;
             this.apiToken = null;
             this.teamId = null;
+
+            // Clear stored credentials on error
+            if (typeof localStorage !== 'undefined') {
+                localStorage.removeItem('codemagic_token');
+                localStorage.removeItem('codemagic_team_id');
+            }
+
             this.emit('auth:error', { error });
             throw error;
         }
@@ -338,14 +413,73 @@ class CodemagicIntegration {
         };
     }
 
-    // Check authentication status
-    isAuthenticatedStatus() {
-        return {
+    // Test connection to Codemagic API
+    async testConnection() {
+        if (!this.apiToken) {
+            throw new Error('No API token available. Please authenticate first.');
+        }
+
+        try {
+            const response = await fetch(`${this.apiBase}/apps`, {
+                method: 'GET',
+                headers: {
+                    'x-auth-token': this.apiToken,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+
+            this.updateRateLimit(response);
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    this.isAuthenticated = false;
+                    throw new Error('Authentication expired. Please re-authenticate.');
+                }
+                throw new Error(`Connection test failed: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return {
+                success: true,
+                appsCount: data.applications ? data.applications.length : 0,
+                rateLimit: this.getRateLimitStatus()
+            };
+
+        } catch (error) {
+            if (error.message.includes('Authentication expired')) {
+                this.logout();
+            }
+            throw error;
+        }
+    }
+
+    // Check authentication status with connection test
+    async isAuthenticatedStatus(testConnection = false) {
+        const basicStatus = {
             authenticated: this.isAuthenticated,
             hasToken: !!this.apiToken,
             teamId: this.teamId,
             rateLimit: this.getRateLimitStatus()
         };
+
+        if (testConnection && this.isAuthenticated) {
+            try {
+                const connectionTest = await this.testConnection();
+                return {
+                    ...basicStatus,
+                    connectionTest: connectionTest
+                };
+            } catch (error) {
+                return {
+                    ...basicStatus,
+                    authenticated: false,
+                    connectionError: error.message
+                };
+            }
+        }
+
+        return basicStatus;
     }
 
     // Logout
@@ -355,6 +489,13 @@ class CodemagicIntegration {
         this.teamId = null;
         this.rateLimitRemaining = 5000;
         this.rateLimitReset = null;
+
+        // Clear stored credentials
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('codemagic_token');
+            localStorage.removeItem('codemagic_team_id');
+        }
+
         this.emit('auth:logout', {});
     }
 }

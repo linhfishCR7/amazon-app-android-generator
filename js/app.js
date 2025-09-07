@@ -17,7 +17,15 @@ class CordovaAppGeneratorApp {
 
     async init() {
         try {
-            // Initialize core modules first (without UI dependencies)
+            // Initialize configuration manager first
+            this.configManager = new ConfigurationManager();
+            window.configManager = this.configManager;
+
+            // Initialize authentication manager
+            this.authManager = new AuthenticationManager(this.configManager);
+            window.authManager = this.authManager;
+
+            // Initialize core modules
             this.templatesManager = new AppTemplatesManager();
             this.templateManager = new TemplateManager();
             this.generator = new CordovaAppGenerator();
@@ -29,7 +37,7 @@ class CordovaAppGeneratorApp {
             // Connect build status manager with Codemagic integration
             this.buildStatusManager.setCodemagicIntegration(this.codemagic);
 
-            // Make core modules globally available before UI initialization
+            // Make core modules globally available
             window.templatesManager = this.templatesManager;
             window.templateManager = this.templateManager;
             window.generator = this.generator;
@@ -46,7 +54,27 @@ class CordovaAppGeneratorApp {
                 });
             }
 
-            // Initialize UI after core modules and DOM are ready
+            // Initialize enhanced UI manager
+            this.uiManager = new EnhancedUIManager(this.configManager, this.authManager);
+            window.uiManager = this.uiManager;
+
+            // Initialize template actions manager
+            this.templateActions = new TemplateActionManager(this.configManager, this.authManager);
+            window.templateActions = this.templateActions;
+
+            // Initialize App Manager with all integrations
+            if (window.AppManager) {
+                this.appManager = new window.AppManager();
+                this.appManager.setConfigManager(this.configManager);
+                this.appManager.setAuthManager(this.authManager);
+                this.appManager.setTemplateActions(this.templateActions);
+                this.appManager.setGitHubIntegration(this.github);
+                this.appManager.setCodemagicIntegration(this.codemagic);
+                window.appManager = this.appManager;
+                console.log('✅ App Manager initialized with all integrations');
+            }
+
+            // Initialize legacy UI manager for backward compatibility
             this.ui = new UIManager();
             window.ui = this.ui;
 
@@ -61,10 +89,14 @@ class CordovaAppGeneratorApp {
                 this.buildStatusManager.startPollingActiveBuilds();
             }, 2000);
 
-            console.log('Cordova App Generator initialized successfully');
+            console.log('✅ Cordova App Generator initialized successfully with file-based configuration');
         } catch (error) {
-            console.error('Failed to initialize application:', error);
-            this.ui?.showToast('Failed to initialize application', 'error');
+            console.error('❌ Failed to initialize application:', error);
+            if (this.uiManager) {
+                this.uiManager.showToast('Failed to initialize application', 'error');
+            } else {
+                alert('Failed to initialize application: ' + error.message);
+            }
         }
     }
 
@@ -109,6 +141,331 @@ class CordovaAppGeneratorApp {
         this.cordovaBuilder.on('build:complete', this.onBuildComplete.bind(this));
         this.cordovaBuilder.on('build:error', this.onBuildError.bind(this));
         this.cordovaBuilder.on('build:step', this.onBuildStep.bind(this));
+
+        // Setup DOM event listeners after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.setupDOMEventListeners();
+            });
+        } else {
+            this.setupDOMEventListeners();
+        }
+    }
+
+    // Setup DOM-based event listeners
+    setupDOMEventListeners() {
+        // Generate All Apps button
+        const generateAllBtn = document.getElementById('generateAllBtn');
+        if (generateAllBtn) {
+            generateAllBtn.addEventListener('click', () => {
+                console.log('🚀 Generate All Apps button clicked');
+                this.startGeneration();
+            });
+            console.log('✅ Generate All Apps button event listener attached');
+        } else {
+            console.warn('⚠️ Generate All Apps button not found');
+        }
+
+        // Listen for template selection changes to update generate button
+        document.addEventListener('template:selected', () => {
+            this.updateGenerateButtonState();
+        });
+
+        document.addEventListener('template:deselected', () => {
+            this.updateGenerateButtonState();
+        });
+
+        console.log('✅ DOM event listeners setup complete');
+    }
+
+    // Update generate button state based on selected templates
+    updateGenerateButtonState() {
+        const generateAllBtn = document.getElementById('generateAllBtn');
+        const selectedTemplatesCount = document.getElementById('selectedTemplatesCount');
+
+        if (!generateAllBtn || !selectedTemplatesCount) return;
+
+        const config = this.configManager?.getConfig();
+        const selectedTemplates = config?.ui?.selectedTemplates || [];
+        const count = selectedTemplates.length;
+
+        if (count > 0) {
+            generateAllBtn.disabled = false;
+            generateAllBtn.innerHTML = `<i class="fas fa-rocket"></i> Generate ${count} Apps <span id="selectedTemplatesCount">${count}</span>`;
+            generateAllBtn.title = `Generate ${count} selected templates`;
+        } else {
+            generateAllBtn.disabled = true;
+            generateAllBtn.innerHTML = '<i class="fas fa-rocket"></i> Generate All Apps <span id="selectedTemplatesCount" style="display: none;">0</span>';
+            generateAllBtn.title = 'Select templates to generate';
+        }
+    }
+
+    // Get form data from UI elements
+    getFormDataFromUI() {
+        const config = this.configManager.getConfig();
+
+        return {
+            // Basic app information
+            packagePrefix: document.getElementById('packagePrefix')?.value || config.generation?.packagePrefix || 'com.lehau',
+            authorName: document.getElementById('authorName')?.value || config.generation?.authorName || 'LinhFish Development Team',
+            authorEmail: document.getElementById('authorEmail')?.value || config.generation?.authorEmail || 'contact@linhfish.com',
+
+            // GitHub settings
+            githubUsername: document.getElementById('githubUsername')?.value || config.github?.username || '',
+            githubToken: document.getElementById('githubToken')?.value || config.github?.token || '',
+
+            // Build settings
+            enableBuildPreparation: document.getElementById('enableBuildPreparation')?.checked || config.generation?.enableBuildPreparation || false,
+            outputDirectory: document.getElementById('outputDirectory')?.value || config.generation?.outputDirectory || './generated-apps',
+            androidMinSdk: document.getElementById('androidMinSdk')?.value || config.generation?.androidMinSdk || '22',
+            androidTargetSdk: document.getElementById('androidTargetSdk')?.value || config.generation?.androidTargetSdk || '34',
+
+            // Codemagic settings
+            enableCodemagicIntegration: document.getElementById('enableCodemagicIntegration')?.checked || config.codemagic?.enabled || false,
+            codemagicApiToken: document.getElementById('codemagicApiToken')?.value || config.codemagic?.apiToken || '',
+            codemagicTeamId: document.getElementById('codemagicTeamId')?.value || config.codemagic?.teamId || '',
+
+            // Additional settings
+            createGitHubRepos: document.getElementById('createGitHubRepos')?.checked || config.generation?.createGitHubRepos || false,
+            pushToGitHub: document.getElementById('pushToGitHub')?.checked || config.generation?.pushToGitHub || false
+        };
+    }
+
+    // Show toast message
+    showToast(message, type = 'info', duration = 5000) {
+        if (this.uiManager) {
+            this.uiManager.showToast(message, type, duration);
+        } else if (this.ui) {
+            this.ui.showToast(message, type, duration);
+        } else {
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+    }
+
+    // Setup Codemagic authentication UI
+    setupCodemagicAuthUI() {
+        const testBtn = document.getElementById('testCodemagicBtn');
+        const authBtn = document.getElementById('authenticateCodemagicBtn');
+        const statusElement = document.getElementById('codemagicStatus');
+        const tokenInput = document.getElementById('codemagicApiToken');
+        const teamIdInput = document.getElementById('codemagicTeamId');
+        const enableToggle = document.getElementById('enableCodemagicIntegration');
+        const codemagicFields = document.getElementById('codemagicFields');
+
+        // Setup toggle visibility
+        if (enableToggle && codemagicFields) {
+            enableToggle.addEventListener('change', () => {
+                codemagicFields.style.display = enableToggle.checked ? 'block' : 'none';
+            });
+            // Initialize visibility
+            codemagicFields.style.display = enableToggle.checked ? 'block' : 'none';
+        }
+
+        // Test connection button
+        if (testBtn) {
+            testBtn.addEventListener('click', async () => {
+                await this.testCodemagicConnection();
+            });
+        }
+
+        // Authenticate button
+        if (authBtn) {
+            authBtn.addEventListener('click', async () => {
+                await this.authenticateCodemagic();
+            });
+        }
+
+        // Auto-test connection when token changes
+        if (tokenInput) {
+            tokenInput.addEventListener('blur', async () => {
+                const token = tokenInput.value.trim();
+                if (token && token.length > 20) {
+                    await this.authenticateCodemagic();
+                }
+            });
+        }
+
+        // Listen to Codemagic events for UI updates
+        this.codemagic.on('auth:success', (data) => {
+            this.updateCodemagicStatus('connected', `Authenticated successfully! Found ${data.appsCount} apps.`);
+            this.ui?.showToast('Codemagic authentication successful!', 'success');
+        });
+
+        this.codemagic.on('auth:error', (data) => {
+            this.updateCodemagicStatus('disconnected', `Authentication failed: ${data.error.message}`);
+            this.ui?.showToast(`Codemagic authentication failed: ${data.error.message}`, 'error');
+        });
+
+        this.codemagic.on('auth:start', () => {
+            this.updateCodemagicStatus('testing', 'Testing connection...');
+        });
+
+        // Check initial authentication status
+        setTimeout(() => {
+            const status = this.codemagic.isAuthenticatedStatus();
+            if (status.authenticated) {
+                this.updateCodemagicStatus('connected', 'Already authenticated');
+            } else {
+                this.updateCodemagicStatus('disconnected', 'Not authenticated');
+            }
+        }, 1000);
+    }
+
+    // Test Codemagic connection
+    async testCodemagicConnection() {
+        try {
+            this.updateCodemagicStatus('testing', 'Testing connection...');
+
+            const status = await this.codemagic.isAuthenticatedStatus(true);
+
+            if (status.authenticated && !status.connectionError) {
+                this.updateCodemagicStatus('connected', `Connection successful! Rate limit: ${status.rateLimit.remaining} requests remaining.`);
+                this.ui?.showToast('Codemagic connection test successful!', 'success');
+            } else if (status.connectionError) {
+                this.updateCodemagicStatus('disconnected', `Connection failed: ${status.connectionError}`);
+                this.ui?.showToast(`Connection test failed: ${status.connectionError}`, 'error');
+            } else {
+                this.updateCodemagicStatus('disconnected', 'Not authenticated. Please enter your API token.');
+                this.ui?.showToast('Not authenticated. Please enter your API token.', 'warning');
+            }
+
+        } catch (error) {
+            this.updateCodemagicStatus('disconnected', `Test failed: ${error.message}`);
+            this.ui?.showToast(`Connection test failed: ${error.message}`, 'error');
+        }
+    }
+
+    // Authenticate with Codemagic using form inputs
+    async authenticateCodemagic() {
+        const tokenInput = document.getElementById('codemagicApiToken');
+        const teamIdInput = document.getElementById('codemagicTeamId');
+
+        if (!tokenInput) {
+            console.error('Codemagic API token input not found');
+            this.showToast('Codemagic API token input not found', 'error');
+            return;
+        }
+
+        const token = tokenInput.value ? tokenInput.value.trim() : '';
+        const teamId = teamIdInput && teamIdInput.value ? teamIdInput.value.trim() : null;
+
+        console.log('Token validation:', { hasToken: !!token, tokenLength: token.length });
+
+        if (!token || token.length < 10) {
+            this.showToast('Please enter a valid Codemagic API token', 'warning');
+            this.updateCodemagicStatus('disconnected', 'Please enter your API token');
+            return;
+        }
+
+        try {
+            this.updateCodemagicStatus('testing', 'Authenticating...');
+            this.showToast('Authenticating with Codemagic...', 'info');
+
+            const result = await this.codemagic.authenticate(token, teamId);
+
+            if (result && result.success) {
+                this.updateCodemagicStatus('connected', `Authenticated successfully! Found ${result.appsCount} apps.`);
+                this.showToast('Codemagic authentication successful!', 'success');
+            } else {
+                this.updateCodemagicStatus('disconnected', 'Authentication failed');
+                this.showToast('Codemagic authentication failed', 'error');
+            }
+
+        } catch (error) {
+            console.error('Codemagic authentication error:', error);
+            this.updateCodemagicStatus('disconnected', `Authentication failed: ${error.message}`);
+            this.showToast(`Codemagic authentication failed: ${error.message}`, 'error');
+        }
+    }
+
+    // Update Codemagic status display
+    updateCodemagicStatus(status, message) {
+        const statusElement = document.getElementById('codemagicStatus');
+        if (!statusElement) return;
+
+        const indicator = statusElement.querySelector('.status-indicator');
+        if (!indicator) return;
+
+        // Update status class
+        indicator.className = `status-indicator status-${status}`;
+
+        // Update icon and text
+        let icon = 'fas fa-times-circle';
+        let text = 'Not Authenticated';
+
+        switch (status) {
+            case 'connected':
+                icon = 'fas fa-check-circle';
+                text = 'Connected';
+                break;
+            case 'testing':
+                icon = 'fas fa-spinner fa-spin';
+                text = 'Testing...';
+                break;
+            case 'disconnected':
+                icon = 'fas fa-times-circle';
+                text = 'Not Authenticated';
+                break;
+            case 'warning':
+                icon = 'fas fa-exclamation-triangle';
+                text = 'Warning';
+                break;
+        }
+
+        indicator.innerHTML = `<i class="${icon}"></i> ${text}`;
+
+        // Update tooltip or additional message
+        if (message) {
+            indicator.title = message;
+        }
+    }
+
+    // Toast notification helper method
+    showToast(message, type = 'info', duration = 5000) {
+        if (this.ui && this.ui.showToast) {
+            this.ui.showToast(message, type, duration);
+        } else {
+            // Fallback to console if UI is not available
+            console.log(`[${type.toUpperCase()}] ${message}`);
+
+            // Create a simple toast if UI is not available
+            this.createSimpleToast(message, type, duration);
+        }
+    }
+
+    // Simple toast implementation as fallback
+    createSimpleToast(message, type, duration) {
+        const toast = document.createElement('div');
+        toast.className = `simple-toast toast-${type}`;
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4caf50' : type === 'warning' ? '#ff9800' : '#2196f3'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 10000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 400px;
+            word-wrap: break-word;
+        `;
+
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }
+        }, duration);
     }
 
     // Initialize UI with templates
@@ -125,19 +482,27 @@ class CordovaAppGeneratorApp {
 
     // Start generation process
     async startGeneration() {
+        console.log('🚀 Starting app generation process...');
+
         if (this.isGenerating) {
-            this.ui.showToast('Generation already in progress', 'warning');
+            this.showToast('Generation already in progress', 'warning');
             return;
         }
 
-        const selectedTemplateIds = this.ui.getSelectedTemplates();
+        // Get selected templates from configuration
+        const config = this.configManager?.getConfig();
+        const selectedTemplateIds = config?.ui?.selectedTemplates || [];
+
         if (selectedTemplateIds.length === 0) {
-            this.ui.showToast('Please select at least one app template', 'warning');
+            this.showToast('Please select at least one app template', 'warning');
             return;
         }
 
-        const formData = this.ui.getFormData();
-        
+        console.log(`📋 Selected ${selectedTemplateIds.length} templates:`, selectedTemplateIds);
+
+        // Get form data from UI
+        const formData = this.getFormDataFromUI();
+
         // Validate form data
         if (!this.validateFormData(formData)) {
             return;
@@ -145,19 +510,29 @@ class CordovaAppGeneratorApp {
 
         try {
             this.isGenerating = true;
-            
-            // Get selected templates
-            const selectedTemplates = selectedTemplateIds.map(id => 
-                this.templatesManager.getTemplate(id)
-            ).filter(Boolean);
+
+            // Get selected templates from app manager
+            const selectedTemplates = [];
+            for (const templateId of selectedTemplateIds) {
+                const template = window.appManager?.templates?.find(t => t.id === templateId);
+                if (template) {
+                    selectedTemplates.push(template);
+                } else {
+                    console.warn(`⚠️ Template not found: ${templateId}`);
+                }
+            }
+
+            if (selectedTemplates.length === 0) {
+                throw new Error('No valid templates found for generation');
+            }
+
+            console.log(`✅ Found ${selectedTemplates.length} valid templates for generation`);
 
             // Show progress section
             this.showProgressSection();
 
-            // Authenticate with GitHub
-            await this.authenticateGitHub(formData.githubUsername, formData.githubToken);
-
             // Generate apps
+            console.log('🔄 Starting app generation...');
             const results = await this.generator.generateApps(selectedTemplates, formData);
 
             // Prepare Cordova build structure if enabled
@@ -173,13 +548,31 @@ class CordovaAppGeneratorApp {
                 }));
             }
 
-            // Create GitHub repositories and push code
-            const githubResults = await this.github.createAndPushApps(results.results);
+            // Create GitHub repositories and push code (only if enabled and authenticated)
+            let githubResults = null;
+            if (formData.createGitHubRepos && this.github.isAuthenticated) {
+                console.log('🔄 Creating GitHub repositories...');
+                this.addLogEntry('Creating GitHub repositories...', 'info');
+                githubResults = await this.github.createAndPushApps(results.results);
+            } else if (formData.createGitHubRepos && !this.github.isAuthenticated) {
+                console.warn('⚠️ GitHub repository creation requested but not authenticated');
+                this.addLogEntry('Skipping GitHub repository creation - not authenticated', 'warning');
+                githubResults = { skipped: true, reason: 'Not authenticated with GitHub' };
+            } else {
+                console.log('ℹ️ GitHub repository creation disabled');
+                githubResults = { skipped: true, reason: 'GitHub repository creation disabled' };
+            }
 
             // Codemagic integration if enabled
             let codemagicResults = null;
             if (formData.enableCodemagicIntegration) {
-                codemagicResults = await this.integrateWithCodemagic(githubResults, formData);
+                if (githubResults && !githubResults.skipped) {
+                    codemagicResults = await this.integrateWithCodemagic(githubResults, formData);
+                } else {
+                    console.warn('⚠️ Codemagic integration skipped - no GitHub repositories created');
+                    this.addLogEntry('Skipping Codemagic integration - no GitHub repositories', 'warning');
+                    codemagicResults = { skipped: true, reason: 'No GitHub repositories available' };
+                }
             }
 
             // Store results
@@ -204,34 +597,62 @@ class CordovaAppGeneratorApp {
 
     // Validate form data
     validateFormData(formData) {
-        const required = ['githubUsername', 'githubToken', 'packagePrefix', 'authorName', 'authorEmail'];
+        // Always required fields
+        const alwaysRequired = ['packagePrefix', 'authorName', 'authorEmail'];
 
-        for (const field of required) {
+        for (const field of alwaysRequired) {
             if (!formData[field] || !formData[field].trim()) {
-                this.ui.showToast(`Please fill in the ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`, 'error');
+                this.showToast(`Please fill in the ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`, 'error');
                 return false;
             }
         }
 
-        // Validate GitHub token format
-        if (!formData.githubToken.startsWith('ghp_') && !formData.githubToken.startsWith('github_pat_')) {
-            this.ui.showToast('Please enter a valid GitHub personal access token (starts with ghp_ or github_pat_)', 'error');
-            return false;
+        // Validate GitHub credentials only if GitHub features are enabled
+        const needsGitHub = formData.createGitHubRepos || formData.pushToGitHub || formData.enableCodemagicIntegration;
+
+        if (needsGitHub) {
+            if (!formData.githubUsername || !formData.githubUsername.trim()) {
+                this.showToast('GitHub username is required for GitHub integration features', 'error');
+                return false;
+            }
+
+            if (!formData.githubToken || !formData.githubToken.trim()) {
+                this.showToast('GitHub personal access token is required for GitHub integration features', 'error');
+                return false;
+            }
+
+            // Validate GitHub token format
+            if (!formData.githubToken.startsWith('ghp_') && !formData.githubToken.startsWith('github_pat_')) {
+                this.showToast('Please enter a valid GitHub personal access token (starts with ghp_ or github_pat_)', 'error');
+                return false;
+            }
         }
 
         // Validate email
-        if (!this.ui.isValidEmail(formData.authorEmail)) {
-            this.ui.showToast('Please enter a valid email address', 'error');
+        if (!this.isValidEmail(formData.authorEmail)) {
+            this.showToast('Please enter a valid email address', 'error');
             return false;
         }
 
         // Validate package prefix
-        if (!this.ui.isValidPackageName(formData.packagePrefix)) {
-            this.ui.showToast('Please enter a valid package prefix (e.g., com.yourname)', 'error');
+        if (!this.isValidPackageName(formData.packagePrefix)) {
+            this.showToast('Please enter a valid package prefix (e.g., com.yourname)', 'error');
             return false;
         }
 
         return true;
+    }
+
+    // Validate email format
+    isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    // Validate package name format
+    isValidPackageName(packageName) {
+        const packageRegex = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
+        return packageRegex.test(packageName);
     }
 
     // Authenticate with GitHub
@@ -464,7 +885,7 @@ class CordovaAppGeneratorApp {
             this.addLogEntry('🚀 Starting Codemagic.io integration...', 'info');
 
             // Authenticate with Codemagic
-            await this.authenticateCodemagic(formData.codemagicApiToken, formData.codemagicTeamId);
+            await this.authenticateCodemagicWithParams(formData.codemagicApiToken, formData.codemagicTeamId);
 
             const codemagicResults = [];
 
@@ -519,15 +940,16 @@ class CordovaAppGeneratorApp {
         }
     }
 
-    // Authenticate with Codemagic
-    async authenticateCodemagic(apiToken, teamId) {
-        if (!apiToken || !apiToken.trim()) {
-            throw new Error('Codemagic API token is required');
+    // Authenticate with Codemagic (for internal use with parameters)
+    async authenticateCodemagicWithParams(apiToken, teamId) {
+        if (!apiToken || !apiToken.trim() || apiToken.trim().length < 10) {
+            throw new Error('Valid Codemagic API token is required');
         }
 
         this.addLogEntry('Authenticating with Codemagic.io...', 'info');
-        await this.codemagic.authenticate(apiToken.trim(), teamId?.trim() || null);
+        const result = await this.codemagic.authenticate(apiToken.trim(), teamId?.trim() || null);
         this.addLogEntry('✓ Codemagic authentication successful', 'success');
+        return result;
     }
 
     // Codemagic event handlers

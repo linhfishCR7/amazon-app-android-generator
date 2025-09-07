@@ -1,0 +1,63 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "created": "2025-01-07T12:00:00.000Z",
+    "lastModified": "2025-09-07T17:02:23.841Z",
+    "appVersion": "1.0.0",
+    "description": "cordova-app-generator-config",
+    "savedBy": "Cordova App Generator"
+  },
+  "authentication": {
+    "github": {
+      "token": "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",
+      "username": "linhfishCR7",
+      "lastValidated": "2025-09-07T17:01:08.233Z",
+      "isValid": true,
+      "rateLimit": {
+        "limit": 5000,
+        "remaining": 4999,
+        "reset": "2025-09-07T18:00:06.000Z"
+      }
+    },
+    "codemagic": {
+      "token": "-oiwwKViWLgE4XtMr4_AEt-HdHXQEM62g_EkDWiAODg",
+      "teamId": "",
+      "lastValidated": "2025-09-07T17:01:36.511Z",
+      "isValid": true,
+      "rateLimit": {
+        "lastRequest": "2025-09-07T17:01:36.310Z"
+      }
+    }
+  },
+  "settings": {
+    "packagePrefix": "com.lehau",
+    "authorName": "LinhFish Development Team",
+    "authorEmail": "dev@linhfish.com",
+    "outputDirectory": "./generated-apps",
+    "androidMinSdk": "33",
+    "enableBuildPreparation": true,
+    "enableGitInit": true,
+    "enableCodemagicIntegration": false,
+    "codemagicWorkflowId": "cordova_android_build",
+    "codemagicBranch": "main",
+    "codemagicConfig": ""
+  },
+  "ui": {
+    "selectedTemplates": [],
+    "filterSettings": {
+      "status": "all",
+      "searchTerm": ""
+    },
+    "lastUsedTemplates": [],
+    "preferences": {
+      "autoSave": false,
+      "showAdvancedOptions": false,
+      "theme": "default"
+    }
+  },
+  "templates": {
+    "custom": [],
+    "usage": {},
+    "favorites": []
+  }
+}

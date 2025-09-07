@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://api.github.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://api.github.com; img-src 'self' data: blob:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://api.github.com https://api.codemagic.io; img-src 'self' data: blob:;">
     <title>Cordova App Generator - Create Multiple Mobile Apps</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,16 +27,29 @@
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-outline" id="loadConfigBtn">
-                        <i class="fas fa-upload"></i>
+                        <i class="fas fa-folder-open"></i>
                         Load Config
                     </button>
                     <button class="btn btn-outline" id="saveConfigBtn">
-                        <i class="fas fa-download"></i>
-                        Save Config
+                        <i class="fas fa-save"></i>
+                        Save Config As...
                     </button>
-                    <button class="btn btn-primary" id="generateAllBtn">
+                    <button class="btn btn-outline" id="recentFilesBtn">
+                        <i class="fas fa-history"></i>
+                        Recent
+                    </button>
+                    <button class="btn btn-outline" id="configTemplatesBtn">
+                        <i class="fas fa-layer-group"></i>
+                        Templates
+                    </button>
+                    <label class="auto-save-toggle">
+                        <input type="checkbox" id="autoSaveToggle" checked>
+                        <span>Auto-save</span>
+                    </label>
+                    <button class="btn btn-primary" id="generateAllBtn" disabled title="Select templates to generate">
                         <i class="fas fa-rocket"></i>
                         Generate All Apps
+                        <span id="selectedTemplatesCount" style="display: none;">0</span>
                     </button>
                 </div>
             </div>
@@ -65,6 +78,14 @@
                             <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">
                                 <a href="https://github.com/settings/tokens" target="_blank" style="color: #4A90E2;">Create token</a> with 'repo' or 'public_repo' scope
                             </small>
+                            <div class="integration-status" id="githubStatus" style="margin-top: 0.5rem;">
+                                <span class="status-indicator status-disconnected">
+                                    <i class="fas fa-times-circle"></i> Not Connected
+                                </span>
+                                <button class="btn btn-sm btn-primary" id="testGitHubBtn">
+                                    <i class="fas fa-plug"></i> Test Connection
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -116,6 +137,21 @@
                                     <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">
                                         Git branch to build (usually 'main' or 'master')
                                     </small>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <div class="integration-status" id="codemagicStatus">
+                                        <span class="status-indicator status-disconnected">
+                                            <i class="fas fa-times-circle"></i> Not Authenticated
+                                        </span>
+                                        <button class="btn btn-sm btn-primary" id="testCodemagicBtn">
+                                            <i class="fas fa-plug"></i> Test Connection
+                                        </button>
+                                        <button class="btn btn-sm btn-secondary" id="authenticateCodemagicBtn" style="display: none;">
+                                            <i class="fas fa-key"></i> Authenticate
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -233,10 +269,59 @@
                             <i class="fas fa-random"></i>
                             Random Apps
                         </button>
+                        <button class="btn btn-sm btn-primary" id="refreshTemplatesBtn" title="Refresh Templates">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh
+                        </button>
                     </div>
                 </div>
+
+                <!-- Template Filters -->
+                <div class="template-filters">
+                    <div class="filter-controls">
+                        <div class="filter-group">
+                            <label for="templateFilter">Filter by Status:</label>
+                            <select id="templateFilter" class="filter-select">
+                                <option value="all">All Templates</option>
+                                <option value="local-only">Local Only</option>
+                                <option value="with-repo">With GitHub Repo</option>
+                                <option value="public">Public Repositories</option>
+                                <option value="private">Private Repositories</option>
+                                <option value="archived">Archived Repositories</option>
+                                <option value="disabled">Disabled Repositories</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="templateSearch">Search Templates:</label>
+                            <div class="search-input">
+                                <input type="text" id="templateSearch" placeholder="Search by name, category, or description..." class="search-field">
+                                <i class="fas fa-search search-icon"></i>
+                            </div>
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn btn-sm btn-outline" id="refreshTemplatesBtn" title="Refresh repository status">
+                                <i class="fas fa-sync-alt"></i> Refresh Status
+                            </button>
+                        </div>
+                        <div class="filter-stats" id="filterStats">
+                            <span class="stat">Total: 0</span>
+                            <span class="stat">Local: 0</span>
+                            <span class="stat">With Repo: 0</span>
+                            <span class="stat">Public: 0</span>
+                            <span class="stat">Private: 0</span>
+                            <span class="stat">Filtered: 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Templates Grid -->
                 <div class="templates-grid" id="templatesGrid">
                     <!-- Templates will be populated by JavaScript -->
+                </div>
+
+                <!-- Pagination -->
+                <div class="templates-pagination" id="templatesPagination" style="display: none;">
+                    <!-- Pagination controls will be populated by JavaScript -->
                 </div>
             </section>
 
@@ -437,8 +522,13 @@
     </div>
 
     <!-- Scripts -->
+    <script src="js/debug-helper.js"></script>
     <script src="js/config.js"></script>
     <script src="js/security.js"></script>
+    <script src="js/config-manager.js"></script>
+    <script src="js/auth-manager.js"></script>
+    <script src="js/template-actions.js"></script>
+    <script src="js/ui-manager.js"></script>
     <script src="js/templates.js"></script>
     <script src="js/template-manager.js"></script>
     <script src="js/generator.js"></script>
@@ -446,6 +536,7 @@
     <script src="js/codemagic.js"></script>
     <script src="js/build-status-manager.js"></script>
     <script src="js/cordova-builder.js"></script>
+    <script src="js/app-manager.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>
 </body>
