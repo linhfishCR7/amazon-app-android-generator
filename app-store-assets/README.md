@@ -13,6 +13,7 @@ This directory contains professional app store assets ready for immediate use in
 - **`app-store-description.md`** - Marketing-optimized app store description
 
 ### 🛠️ **Conversion Tools**
+- **`automated-image-generator.html`** - 🚀 **NEW: AUTOMATED IMAGE GENERATOR** - Upload one image, get all 5 app store images automatically
 - **`enhanced-converter.html`** - ⭐ **FULL-FEATURED CONVERTER** with custom dimensions, multiple formats, preview, and batch export
 - **`convert-to-png.html`** - Basic web-based SVG to PNG converter with preview
 - **`convert-assets.js`** - Node.js command-line converter (requires canvas module)
@@ -23,7 +24,17 @@ This directory contains professional app store assets ready for immediate use in
 
 ## 🚀 Quick Start
 
-### Option 1: Enhanced Web Converter (Recommended) ⭐
+### Option 1: Automated Image Generator (NEW!) 🚀
+1. Open `automated-image-generator.html` in your web browser
+2. **Upload Source Image**: Drag & drop or click to upload PNG, JPG, or SVG
+3. **Automatic Generation**: Generates all 5 required app store images:
+   - App Store Icon (512×512px) with 10% padding
+   - Small App Icon (114×114px) for notifications
+   - 3× Feature Graphics (1280×800px) with white background
+4. **Download All**: Get individual images or download all at once
+5. **Perfect Dimensions**: All images meet exact app store requirements
+
+### Option 2: Enhanced Web Converter ⭐
 1. Open `enhanced-converter.html` in your web browser
 2. **Custom Dimensions**: Enter any width/height for your specific needs
 3. **Preview First**: Use "Preview & Convert" to see output before downloading
@@ -32,13 +43,13 @@ This directory contains professional app store assets ready for immediate use in
 6. **Auto-Save Settings**: Your preferences are remembered between sessions
 7. Use fallback generators for professional placeholders when SVG files fail
 
-### Option 2: Basic Web Converter
+### Option 3: Basic Web Converter
 1. Open `convert-to-png.html` in your web browser
 2. Preview all assets
 3. Click download buttons to get PNG versions
 4. Use fallback generators if SVG conversion fails
 
-### Option 3: Command Line Converter
+### Option 4: Command Line Converter
 1. Install dependencies: `npm install canvas`
 2. Run: `node convert-assets.js`
 3. Find generated PNG files in `generated-png/` directory

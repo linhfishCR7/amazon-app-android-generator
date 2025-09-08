@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Image Generator - App Store Assets</title>
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .upload-section {
+            margin: 30px 0;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .upload-section.dragover {
+            border-color: #4A90E2;
+            background: rgba(74, 144, 226, 0.1);
+            transform: scale(1.02);
+        }
+        .upload-area {
+            padding: 40px 20px;
+            cursor: pointer;
+        }
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.7;
+        }
+        .upload-text {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+        .upload-subtext {
+            font-size: 0.9em;
+            opacity: 0.7;
+        }
+        #fileInput {
+            display: none;
+        }
+        .source-preview {
+            margin: 20px 0;
+            text-align: center;
+            display: none;
+        }
+        .source-preview img {
+            max-width: 300px;
+            max-height: 300px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            background: white;
+        }
+        .btn {
+            background: linear-gradient(135deg, #4A90E2, #357ABD);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            margin: 5px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #50C878, #45B068);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #FF6B6B, #FF5252);
+        }
+        .generation-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: none;
+        }
+        .progress-container {
+            margin: 20px 0;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4A90E2, #50C878);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .progress-text {
+            text-align: center;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+        .generated-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .image-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .image-card img {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: white;
+            margin-bottom: 10px;
+        }
+        .image-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .image-specs {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 10px;
+        }
+        .status-message {
+            margin: 10px 0;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .status-success {
+            background: rgba(108, 207, 127, 0.2);
+            border: 1px solid rgba(108, 207, 127, 0.5);
+            color: #6BCF7F;
+        }
+        .status-error {
+            background: rgba(255, 71, 87, 0.2);
+            border: 1px solid rgba(255, 71, 87, 0.5);
+            color: #FF4757;
+        }
+        .status-info {
+            background: rgba(74, 144, 226, 0.2);
+            border: 1px solid rgba(74, 144, 226, 0.5);
+            color: #4A90E2;
+        }
+        canvas {
+            display: none;
+        }
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            border-left: 4px solid #4A90E2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="text-align: center;">
+            <h1>🎨 Automated Image Generator</h1>
+            <p style="font-size: 1.1em; opacity: 0.9; margin: 10px 0;">
+                Upload one source image and automatically generate all 5 required app store images
+            </p>
+            <div style="margin: 15px 0;">
+                <a href="enhanced-converter.html" class="btn" style="text-decoration: none; display: inline-block;">
+                    ← Back to Enhanced Converter
+                </a>
+            </div>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Click to upload or drag & drop your image</div>
+                <div class="upload-subtext">Supports PNG, JPG/JPEG, and SVG files</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/svg+xml">
+        </div>
+
+        <!-- Source Image Preview -->
+        <div class="source-preview" id="sourcePreview">
+            <h3>Source Image</h3>
+            <img id="sourceImage" alt="Source Image">
+            <div style="margin: 15px 0;">
+                <button class="btn btn-primary" onclick="generateAllImages()">
+                    🚀 Generate All App Store Images
+                </button>
+                <button class="btn btn-danger" onclick="clearUpload()">
+                    🗑️ Clear & Upload New
+                </button>
+            </div>
+        </div>
+
+        <!-- Generation Progress -->
+        <div class="generation-section" id="generationSection">
+            <h3>🔄 Generating Images...</h3>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Preparing...</div>
+            </div>
+        </div>
+
+        <!-- Generated Images Display -->
+        <div class="generation-section" id="resultsSection">
+            <h3>✅ Generated Images</h3>
+            <div class="generated-images" id="generatedImages">
+                <!-- Generated images will be inserted here -->
+            </div>
+            <div style="text-align: center; margin: 20px 0;">
+                <button class="btn btn-primary" onclick="downloadAllImages()">
+                    📥 Download All Images
+                </button>
+                <button class="btn" onclick="regenerateImages()">
+                    🔄 Regenerate Images
+                </button>
+                <button class="btn btn-danger" onclick="clearUpload()">
+                    🗑️ Start Over
+                </button>
+            </div>
+            <div style="text-align: center; margin: 10px 0; font-size: 14px; opacity: 0.8;">
+                <p>✅ All images meet exact app store requirements</p>
+                <p>📱 Ready for immediate app store submission</p>
+            </div>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="statusContainer"></div>
+
+        <!-- Instructions -->
+        <div class="instructions">
+            <h3>📋 How It Works</h3>
+            <ul>
+                <li><strong>Upload:</strong> Choose a high-quality source image (PNG, JPG, or SVG)</li>
+                <li><strong>Automatic Generation:</strong> Creates 5 optimized images with proper dimensions</li>
+                <li><strong>App Store Icon (512×512):</strong> Square format with 10% padding</li>
+                <li><strong>Small App Icon (114×114):</strong> Square format for notifications</li>
+                <li><strong>Feature Graphics (1280×800) × 3:</strong> Landscape format with white background</li>
+                <li><strong>Download:</strong> Get all images individually or as a batch</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Hidden canvases for image processing -->
+    <canvas id="processingCanvas"></canvas>
+    <canvas id="tempCanvas"></canvas>
+
+    <script>
+        // Global variables
+        let sourceImageFile = null;
+        let sourceImageData = null;
+        let generatedImages = [];
+
+        // Initialize drag and drop functionality
+        function initializeDragAndDrop() {
+            const uploadSection = document.getElementById('uploadSection');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadSection.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadSection.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadSection.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight(e) {
+                uploadSection.classList.add('dragover');
+            }
+
+            function unhighlight(e) {
+                uploadSection.classList.remove('dragover');
+            }
+
+            uploadSection.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }
+        }
+
+        // Handle file input change
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            handleFiles(e.target.files);
+        });
+
+        // Handle uploaded files
+        function handleFiles(files) {
+            if (files.length === 0) return;
+
+            const file = files[0];
+
+            // Validate file type
+            const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+            const validExtensions = ['.png', '.jpg', '.jpeg', '.svg'];
+            const fileName = file.name.toLowerCase();
+            const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+
+            if (!validTypes.includes(file.type) && !hasValidExtension) {
+                showStatus('Please upload a PNG, JPG, or SVG file.', 'error');
+                return;
+            }
+
+            // Validate file size (max 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                showStatus('File size must be less than 10MB.', 'error');
+                return;
+            }
+
+            // Validate minimum dimensions for raster images
+            if (file.type.startsWith('image/') && file.type !== 'image/svg+xml') {
+                validateImageDimensions(file, (isValid, width, height) => {
+                    if (!isValid) {
+                        showStatus(`Image too small. Minimum recommended: 512×512px. Your image: ${width}×${height}px`, 'error');
+                        return;
+                    }
+                    sourceImageFile = file;
+                    loadSourceImage(file);
+                });
+            } else {
+                sourceImageFile = file;
+                loadSourceImage(file);
+            }
+        }
+
+        // Validate image dimensions
+        function validateImageDimensions(file, callback) {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+
+            img.onload = function() {
+                URL.revokeObjectURL(url);
+                const minSize = 256; // Minimum recommended size
+                const isValid = img.width >= minSize && img.height >= minSize;
+                callback(isValid, img.width, img.height);
+            };
+
+            img.onerror = function() {
+                URL.revokeObjectURL(url);
+                callback(false, 0, 0);
+            };
+
+            img.src = url;
+        }
+
+        // Load and display source image
+        function loadSourceImage(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const img = document.getElementById('sourceImage');
+                img.src = e.target.result;
+                sourceImageData = e.target.result;
+                
+                document.getElementById('sourcePreview').style.display = 'block';
+                showStatus(`Source image loaded: ${file.name}`, 'success');
+            };
+            
+            reader.onerror = function() {
+                showStatus('Error loading image file.', 'error');
+            };
+            
+            reader.readAsDataURL(file);
+        }
+
+        // Clear upload and reset
+        function clearUpload() {
+            sourceImageFile = null;
+            sourceImageData = null;
+            generatedImages = [];
+            
+            document.getElementById('sourcePreview').style.display = 'none';
+            document.getElementById('generationSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+            
+            showStatus('Upload cleared. Ready for new image.', 'info');
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const container = document.getElementById('statusContainer');
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+            
+            container.appendChild(statusDiv);
+            
+            setTimeout(() => {
+                if (statusDiv.parentNode) {
+                    statusDiv.parentNode.removeChild(statusDiv);
+                }
+            }, 5000);
+        }
+
+        // Generate all app store images
+        async function generateAllImages() {
+            if (!sourceImageData) {
+                showStatus('Please upload a source image first.', 'error');
+                return;
+            }
+
+            document.getElementById('generationSection').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+            generatedImages = [];
+
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+
+            try {
+                // Load source image
+                const sourceImg = await loadImageFromData(sourceImageData);
+
+                // Define the 5 required images
+                const imageSpecs = [
+                    { name: 'App Store Icon', width: 512, height: 512, type: 'icon', padding: 0.1 },
+                    { name: 'Small App Icon', width: 114, height: 114, type: 'icon', padding: 0 },
+                    { name: 'Feature Graphic 1', width: 1280, height: 800, type: 'feature', padding: 0 },
+                    { name: 'Feature Graphic 2', width: 1280, height: 800, type: 'feature', padding: 0 },
+                    { name: 'Feature Graphic 3', width: 1280, height: 800, type: 'feature', padding: 0 }
+                ];
+
+                // Generate each image
+                for (let i = 0; i < imageSpecs.length; i++) {
+                    const spec = imageSpecs[i];
+                    progressText.textContent = `Generating ${spec.name}...`;
+                    progressFill.style.width = `${(i / imageSpecs.length) * 100}%`;
+
+                    const generatedImage = await generateImage(sourceImg, spec);
+                    generatedImages.push(generatedImage);
+
+                    // Small delay for better UX
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+
+                progressFill.style.width = '100%';
+                progressText.textContent = 'All images generated successfully!';
+
+                // Show results
+                displayGeneratedImages();
+                document.getElementById('resultsSection').style.display = 'block';
+                showStatus('All 5 app store images generated successfully!', 'success');
+
+            } catch (error) {
+                console.error('Generation error:', error);
+                showStatus(`Generation failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Load image from data URL
+        function loadImageFromData(dataUrl) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('Failed to load source image'));
+                img.src = dataUrl;
+            });
+        }
+
+        // Generate individual image based on specifications
+        async function generateImage(sourceImg, spec) {
+            const canvas = document.getElementById('processingCanvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = spec.width;
+            canvas.height = spec.height;
+
+            // Clear canvas with white background for feature graphics
+            if (spec.type === 'feature') {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, spec.width, spec.height);
+            } else {
+                ctx.clearRect(0, 0, spec.width, spec.height);
+            }
+
+            if (spec.type === 'icon') {
+                // For icons: center crop to square, then apply padding
+                await drawIconImage(ctx, sourceImg, spec.width, spec.height, spec.padding);
+            } else {
+                // For feature graphics: preserve aspect ratio, center in canvas
+                await drawFeatureImage(ctx, sourceImg, spec.width, spec.height);
+            }
+
+            // Convert to data URL
+            const dataUrl = canvas.toDataURL('image/png', 1.0);
+            const fileSize = Math.round(dataUrl.length * 0.75);
+
+            return {
+                name: spec.name,
+                width: spec.width,
+                height: spec.height,
+                dataUrl: dataUrl,
+                fileSize: fileSize,
+                filename: `${spec.name.toLowerCase().replace(/\s+/g, '-')}-${spec.width}x${spec.height}.png`
+            };
+        }
+
+        // Draw icon image with center cropping and optional padding
+        async function drawIconImage(ctx, sourceImg, width, height, padding) {
+            const sourceAspect = sourceImg.width / sourceImg.height;
+            const targetAspect = 1; // Square for icons
+
+            let drawWidth, drawHeight, drawX, drawY;
+
+            if (sourceAspect > targetAspect) {
+                // Source is wider - crop width
+                drawHeight = sourceImg.height;
+                drawWidth = sourceImg.height; // Make it square
+                drawX = (sourceImg.width - drawWidth) / 2;
+                drawY = 0;
+            } else {
+                // Source is taller - crop height
+                drawWidth = sourceImg.width;
+                drawHeight = sourceImg.width; // Make it square
+                drawX = 0;
+                drawY = (sourceImg.height - drawHeight) / 2;
+            }
+
+            // Apply padding
+            const paddingPixels = width * padding;
+            const finalSize = width - (paddingPixels * 2);
+            const finalX = paddingPixels;
+            const finalY = paddingPixels;
+
+            // Enable high-quality rendering
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            // Draw the cropped and scaled image
+            ctx.drawImage(
+                sourceImg,
+                drawX, drawY, drawWidth, drawHeight,
+                finalX, finalY, finalSize, finalSize
+            );
+        }
+
+        // Draw feature image preserving aspect ratio
+        async function drawFeatureImage(ctx, sourceImg, width, height) {
+            const sourceAspect = sourceImg.width / sourceImg.height;
+            const targetAspect = width / height;
+
+            let drawWidth, drawHeight, drawX, drawY;
+
+            if (sourceAspect > targetAspect) {
+                // Source is wider - fit to width
+                drawWidth = width;
+                drawHeight = width / sourceAspect;
+                drawX = 0;
+                drawY = (height - drawHeight) / 2;
+            } else {
+                // Source is taller - fit to height
+                drawHeight = height;
+                drawWidth = height * sourceAspect;
+                drawX = (width - drawWidth) / 2;
+                drawY = 0;
+            }
+
+            // Enable high-quality rendering
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            // Draw the scaled image centered
+            ctx.drawImage(sourceImg, drawX, drawY, drawWidth, drawHeight);
+        }
+
+        // Display generated images in the UI
+        function displayGeneratedImages() {
+            const container = document.getElementById('generatedImages');
+            container.innerHTML = '';
+
+            generatedImages.forEach((img, index) => {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+
+                card.innerHTML = `
+                    <img src="${img.dataUrl}" alt="${img.name}">
+                    <div class="image-title">${img.name}</div>
+                    <div class="image-specs">${img.width}×${img.height}px • ${(img.fileSize/1024).toFixed(1)}KB</div>
+                    <button class="btn" onclick="downloadImage(${index})">
+                        📥 Download
+                    </button>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // Download individual image
+        function downloadImage(index) {
+            if (index < 0 || index >= generatedImages.length) return;
+
+            const img = generatedImages[index];
+            const link = document.createElement('a');
+            link.download = img.filename;
+            link.href = img.dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showStatus(`Downloaded: ${img.name}`, 'success');
+        }
+
+        // Download all images
+        function downloadAllImages() {
+            if (generatedImages.length === 0) {
+                showStatus('No images to download.', 'error');
+                return;
+            }
+
+            generatedImages.forEach((img, index) => {
+                setTimeout(() => {
+                    downloadImage(index);
+                }, index * 500); // Stagger downloads
+            });
+
+            showStatus(`Downloading all ${generatedImages.length} images...`, 'info');
+        }
+
+        // Regenerate images
+        function regenerateImages() {
+            generateAllImages();
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', function() {
+            initializeDragAndDrop();
+            console.log('Automated Image Generator loaded');
+        });
+    </script>
+</body>
+</html>

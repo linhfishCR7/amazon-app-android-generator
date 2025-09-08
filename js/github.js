@@ -216,12 +216,174 @@ class GitHubIntegration {
             };
 
             this.emit('repo:create:success', { repository, appConfig });
+
+            // Auto-enable GitHub Pages for immediate demo access
+            setTimeout(() => {
+                this.autoEnablePages(repository.name);
+            }, 2000);
+
             return repository;
 
         } catch (error) {
             this.emit('repo:create:error', { error, appConfig });
             throw new Error(`Failed to create repository: ${error.message}`);
         }
+    }
+
+    // Enable GitHub Pages for repository
+    async enableGitHubPages(repoName, branch = 'main', path = '/') {
+        if (!this.isAuthenticated) {
+            throw new Error('Not authenticated with GitHub');
+        }
+
+        try {
+            const response = await fetch(`${this.apiUrl}/repos/${this.username}/${repoName}/pages`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source: {
+                        branch: branch,
+                        path: path
+                    }
+                })
+            });
+
+            if (response.status === 201) {
+                const pagesInfo = await response.json();
+                return {
+                    success: true,
+                    url: pagesInfo.html_url,
+                    status: pagesInfo.status
+                };
+            } else if (response.status === 409) {
+                // Pages already enabled, get current status
+                return await this.getGitHubPagesStatus(repoName);
+            } else {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to enable GitHub Pages');
+            }
+        } catch (error) {
+            console.error('Error enabling GitHub Pages:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    // Get GitHub Pages status
+    async getGitHubPagesStatus(repoName) {
+        try {
+            const response = await fetch(`${this.apiUrl}/repos/${this.username}/${repoName}/pages`, {
+                headers: {
+                    'Authorization': `token ${this.token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (response.ok) {
+                const pagesInfo = await response.json();
+                return {
+                    success: true,
+                    url: pagesInfo.html_url,
+                    status: pagesInfo.status,
+                    source: pagesInfo.source
+                };
+            } else {
+                return {
+                    success: false,
+                    error: 'GitHub Pages not enabled'
+                };
+            }
+        } catch (error) {
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    // Check if GitHub Pages URL is accessible
+    async checkPagesAccessibility(pagesUrl) {
+        try {
+            // Use a simple fetch with no-cors mode to check if the page exists
+            // This is limited but works for basic availability checking
+            const response = await fetch(pagesUrl, {
+                method: 'HEAD',
+                mode: 'no-cors'
+            });
+
+            // In no-cors mode, we can't read the response status
+            // But if it doesn't throw, the URL is likely accessible
+            return { accessible: true };
+
+        } catch (error) {
+            return {
+                accessible: false,
+                error: error.message
+            };
+        }
+    }
+
+    // Auto-enable GitHub Pages after successful repository creation
+    async autoEnablePages(repoName) {
+        try {
+            // Wait a moment for repository to be fully created
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            const result = await this.enableGitHubPages(repoName);
+
+            if (result.success) {
+                // Start checking status periodically
+                this.startPagesStatusMonitoring(repoName);
+            }
+
+            return result;
+
+        } catch (error) {
+            console.error('Auto-enable Pages failed:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    // Monitor GitHub Pages status
+    startPagesStatusMonitoring(repoName, maxAttempts = 10) {
+        let attempts = 0;
+
+        const checkStatus = async () => {
+            attempts++;
+
+            try {
+                const status = await this.getGitHubPagesStatus(repoName);
+
+                if (status.success && status.status === 'built') {
+                    // Pages is ready
+                    this.emit('pages:ready', { repoName, status });
+                    return;
+                }
+
+                if (attempts < maxAttempts) {
+                    // Check again in 30 seconds
+                    setTimeout(checkStatus, 30000);
+                } else {
+                    // Max attempts reached
+                    this.emit('pages:timeout', { repoName, attempts });
+                }
+
+            } catch (error) {
+                console.error('Error monitoring Pages status:', error);
+            }
+        };
+
+        // Start monitoring
+        setTimeout(checkStatus, 10000); // First check after 10 seconds
     }
 
     // Push code to repository using GitHub Contents API

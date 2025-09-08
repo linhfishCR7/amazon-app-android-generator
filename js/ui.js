@@ -15,6 +15,7 @@ class UIManager {
         this.setupEventListeners();
         this.initializeModals();
         this.setupToastContainer();
+        this.updateLiveDemoButton();
     }
 
     // Initialize UI components that depend on other modules
@@ -29,6 +30,7 @@ class UIManager {
         document.getElementById('resetConfigBtn')?.addEventListener('click', this.resetConfiguration.bind(this));
         document.getElementById('loadConfigBtn')?.addEventListener('click', this.showLoadConfigModal.bind(this));
         document.getElementById('saveConfigBtn')?.addEventListener('click', this.saveConfiguration.bind(this));
+        document.getElementById('liveDemoBtn')?.addEventListener('click', this.openLiveDemo.bind(this));
 
         // Template actions
         document.getElementById('selectAllBtn')?.addEventListener('click', this.selectAllTemplates.bind(this));
@@ -525,13 +527,13 @@ class UIManager {
             return;
         }
 
-        const buildsList = builds.map(build => {
+        const buildsList = builds.map((build, index) => {
             const badge = window.buildStatusManager.getStatusBadge(build.status);
             const timestamp = window.buildStatusManager.formatTimestamp(build.timestamp);
             const duration = build.duration ? `(${build.duration})` : '';
 
             return `
-                <div class="build-history-item" data-build-id="${build.buildId}">
+                <div class="build-history-item" data-build-id="${build.buildId}" data-build-index="${index}">
                     <div class="build-info">
                         <div class="build-header">
                             <h4>${build.appName}</h4>
@@ -545,9 +547,17 @@ class UIManager {
                             <p><strong>Started:</strong> ${timestamp} ${duration}</p>
                             ${build.artifacts && build.artifacts.length > 0 ?
                                 `<p><strong>Artifacts:</strong> ${build.artifacts.length} files</p>` : ''}
+                            ${build.githubPages ? `
+                                <p><strong>GitHub Pages:</strong>
+                                    <span class="pages-status-${build.githubPages.status || 'unknown'}">
+                                        ${this.formatPagesStatus(build.githubPages.status || 'unknown')}
+                                    </span>
+                                </p>
+                            ` : ''}
                         </div>
                     </div>
                     <div class="build-actions">
+                        ${this.createBuildHistoryLiveDemoButton(build, index)}
                         ${build.buildUrl ? `
                             <a href="${build.buildUrl}" target="_blank" class="btn btn-sm btn-info" title="View Build Logs">
                                 <i class="fas fa-external-link-alt"></i>
@@ -559,11 +569,11 @@ class UIManager {
                             </a>
                         ` : ''}
                         ${build.status === window.buildStatusManager.STATUS.SUCCESS && build.artifacts?.length > 0 ? `
-                            <button class="btn btn-sm btn-success" onclick="ui.showArtifacts('${build.buildId}')" title="Download Artifacts">
+                            <button class="btn btn-sm btn-success" onclick="uiManager.showArtifacts('${build.buildId}')" title="Download Artifacts">
                                 <i class="fas fa-download"></i>
                             </button>
                         ` : ''}
-                        <button class="btn btn-sm btn-danger" onclick="ui.deleteBuild('${build.buildId}')" title="Delete Build">
+                        <button class="btn btn-sm btn-danger" onclick="uiManager.deleteBuild('${build.buildId}')" title="Delete Build">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -1140,7 +1150,149 @@ class UIManager {
 
     // Open GitHub
     openGitHub() {
-        window.open('https://github.com/linhfishCR7/cordova-app-generator', '_blank');
+        window.open('https://github.com/your-username/cordova-app-generator', '_blank');
+    }
+
+    // Open Live Demo
+    openLiveDemo() {
+        // Get the most recently generated app or show a default demo
+        const demoUrl = this.getLiveDemoUrl();
+
+        if (demoUrl) {
+            // Show loading toast
+            this.showToast('Opening live demo...', 'info');
+
+            // Open demo in new tab
+            window.open(demoUrl, '_blank');
+
+            // Track demo view (if analytics enabled)
+            if (window.CONFIG?.features?.analytics) {
+                this.trackEvent('demo_viewed', { url: demoUrl });
+            }
+        } else {
+            // Show modal to generate an app first
+            this.showLiveDemoModal();
+        }
+    }
+
+    // Get live demo URL
+    getLiveDemoUrl() {
+        // Check if we have a recently generated app
+        const recentApps = this.getRecentlyGeneratedApps();
+
+        if (recentApps.length > 0) {
+            const latestApp = recentApps[0];
+            const githubUsername = document.getElementById('githubUsername')?.value;
+
+            if (githubUsername && latestApp.repositoryName) {
+                return `https://${githubUsername}.github.io/${latestApp.repositoryName}/www/`;
+            }
+        }
+
+        // Fallback to example demo
+        return this.getExampleDemoUrl();
+    }
+
+    // Get example demo URL (fallback)
+    getExampleDemoUrl() {
+        // Return a demo URL for a sample app
+        const githubUsername = document.getElementById('githubUsername')?.value || 'your-username';
+        return `https://${githubUsername}.github.io/WeatherApp-Demo/www/`;
+    }
+
+    // Get recently generated apps from localStorage
+    getRecentlyGeneratedApps() {
+        try {
+            const stored = localStorage.getItem('recentlyGeneratedApps');
+            return stored ? JSON.parse(stored) : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    // Store recently generated app
+    storeRecentlyGeneratedApp(appData) {
+        try {
+            const recentApps = this.getRecentlyGeneratedApps();
+
+            // Add new app to the beginning
+            recentApps.unshift({
+                repositoryName: appData.repositoryName,
+                appName: appData.appName,
+                githubUrl: appData.githubUrl,
+                demoUrl: appData.demoUrl,
+                timestamp: new Date().toISOString(),
+                status: appData.status || 'deployed'
+            });
+
+            // Keep only the last 10 apps
+            const limitedApps = recentApps.slice(0, 10);
+
+            localStorage.setItem('recentlyGeneratedApps', JSON.stringify(limitedApps));
+
+            // Update live demo button state
+            this.updateLiveDemoButton();
+
+        } catch (error) {
+            console.error('Error storing recently generated app:', error);
+        }
+    }
+
+    // Update live demo button state
+    updateLiveDemoButton() {
+        const liveDemoBtn = document.getElementById('liveDemoBtn');
+        const recentApps = this.getRecentlyGeneratedApps();
+
+        if (liveDemoBtn) {
+            if (recentApps.length > 0) {
+                liveDemoBtn.innerHTML = `
+                    <i class="fas fa-external-link-alt"></i>
+                    Live Demo (${recentApps.length})
+                `;
+                liveDemoBtn.title = `View live demo - ${recentApps.length} app(s) available`;
+            } else {
+                liveDemoBtn.innerHTML = `
+                    <i class="fas fa-external-link-alt"></i>
+                    Live Demo
+                `;
+                liveDemoBtn.title = 'View live demo of a generated app';
+            }
+        }
+    }
+
+    // Show live demo modal when no apps are available
+    showLiveDemoModal() {
+        const modal = this.createModal('liveDemoModal', 'Live Demo', `
+            <div class="modal-content">
+                <div class="demo-info">
+                    <div class="demo-icon">🚀</div>
+                    <h3>No Apps Generated Yet</h3>
+                    <p>To view a live demo, you need to generate and deploy an app first.</p>
+
+                    <div class="demo-steps">
+                        <h4>Quick Steps:</h4>
+                        <ol>
+                            <li><strong>Configure GitHub:</strong> Enter your GitHub username and token</li>
+                            <li><strong>Select Templates:</strong> Choose one or more app templates</li>
+                            <li><strong>Generate Apps:</strong> Click "Generate All Apps"</li>
+                            <li><strong>Enable GitHub Pages:</strong> Go to repository settings and enable Pages</li>
+                            <li><strong>View Demo:</strong> Return here to view your live demo</li>
+                        </ol>
+                    </div>
+
+                    <div class="demo-example">
+                        <h4>Example Demo:</h4>
+                        <p>Want to see what a generated app looks like? Check out this example:</p>
+                        <button class="btn btn-demo" onclick="window.open('${this.getExampleDemoUrl()}', '_blank')">
+                            <i class="fas fa-external-link-alt"></i>
+                            View Example Demo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        this.showModal(modal);
     }
 
     // Start generation (placeholder)
@@ -1159,14 +1311,1049 @@ class UIManager {
         window.app?.cancelGeneration();
     }
 
+    // Display generation results
+    displayResults(results) {
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsGrid = document.getElementById('resultsGrid');
+
+        if (!resultsSection || !resultsGrid) return;
+
+        // Clear previous results
+        resultsGrid.innerHTML = '';
+
+        // Show results section
+        resultsSection.style.display = 'block';
+
+        // Create and show demo links first
+        this.createDemoLinks(results);
+
+        // Create result cards
+        results.forEach((result, index) => {
+            const resultCard = this.createResultCard(result, index);
+            resultsGrid.appendChild(resultCard);
+        });
+
+        // Scroll to results
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+
+        // Store results for later use
+        this.lastGenerationResults = results;
+    }
+
+    // Create demo links section
+    createDemoLinks(results) {
+        const demoLinksSection = document.getElementById('demoLinksSection');
+        const demoLinksGrid = document.getElementById('demoLinksGrid');
+
+        if (!demoLinksSection || !demoLinksGrid) return;
+
+        // Filter successful results
+        const successfulResults = results.filter(result => result.success && result.repository);
+
+        if (successfulResults.length === 0) {
+            demoLinksSection.style.display = 'none';
+            return;
+        }
+
+        // Clear previous demo links
+        demoLinksGrid.innerHTML = '';
+
+        // Create demo link cards
+        successfulResults.forEach((result, index) => {
+            const demoCard = this.createDemoLinkCard(result, index);
+            demoLinksGrid.appendChild(demoCard);
+        });
+
+        // Show demo links section
+        demoLinksSection.style.display = 'block';
+
+        // Start monitoring GitHub Pages status
+        this.startDemoLinksMonitoring(successfulResults);
+    }
+
+    // Create individual demo link card
+    createDemoLinkCard(result, index) {
+        const githubUsername = document.getElementById('githubUsername')?.value;
+        const appName = result.repository?.name || result.appName;
+        const demoUrl = `https://${githubUsername}.github.io/${appName}/www/`;
+        const repoUrl = result.repository?.htmlUrl;
+
+        const card = document.createElement('div');
+        card.className = 'demo-link-card';
+        card.setAttribute('data-demo-app', appName);
+
+        // Determine initial status
+        const pagesStatus = result.githubPages?.status || 'building';
+        const statusInfo = this.getDemoStatusInfo(pagesStatus);
+
+        card.innerHTML = `
+            <div class="demo-app-icon">
+                ${this.getAppIcon(result.category || 'default')}
+            </div>
+            <div class="demo-app-name">${this.escapeHtml(result.appName)}</div>
+            <div class="demo-app-url">${demoUrl}</div>
+            <div class="demo-status ${statusInfo.class}" id="demoStatus-${appName}">
+                <i class="${statusInfo.icon}"></i>
+                <span>${statusInfo.text}</span>
+            </div>
+            <div class="demo-actions">
+                ${this.createDemoActionButtons(demoUrl, repoUrl, pagesStatus, appName)}
+            </div>
+        `;
+
+        return card;
+    }
+
+    // Get demo status information
+    getDemoStatusInfo(status) {
+        switch (status) {
+            case 'built':
+                return {
+                    class: 'ready',
+                    icon: 'fas fa-check-circle',
+                    text: 'Live & Ready'
+                };
+            case 'building':
+                return {
+                    class: 'building',
+                    icon: 'fas fa-spinner fa-spin',
+                    text: 'Deploying...'
+                };
+            case 'errored':
+                return {
+                    class: 'error',
+                    icon: 'fas fa-exclamation-triangle',
+                    text: 'Setup Failed'
+                };
+            default:
+                return {
+                    class: 'building',
+                    icon: 'fas fa-clock',
+                    text: 'Setting up...'
+                };
+        }
+    }
+
+    // Create demo action buttons
+    createDemoActionButtons(demoUrl, repoUrl, status, appName) {
+        let buttons = '';
+
+        if (status === 'built') {
+            buttons += `
+                <a href="${demoUrl}" target="_blank" class="demo-btn" onclick="uiManager.trackDemoClick('${appName}', '${demoUrl}')">
+                    <i class="fas fa-external-link-alt"></i>
+                    Open Demo
+                </a>
+            `;
+        } else if (status === 'building') {
+            buttons += `
+                <button class="demo-btn" disabled>
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Deploying...
+                </button>
+            `;
+        } else {
+            buttons += `
+                <button class="demo-btn" onclick="uiManager.enableDemoPages('${appName}')">
+                    <i class="fas fa-rocket"></i>
+                    Enable Demo
+                </button>
+            `;
+        }
+
+        // Always include repository link
+        if (repoUrl) {
+            buttons += `
+                <a href="${repoUrl}" target="_blank" class="demo-btn secondary">
+                    <i class="fab fa-github"></i>
+                    Repository
+                </a>
+            `;
+        }
+
+        return buttons;
+    }
+
+    // Get app icon based on category
+    getAppIcon(category) {
+        const icons = {
+            weather: '🌤️',
+            productivity: '📋',
+            utilities: '🔧',
+            education: '🎓',
+            health: '💪',
+            finance: '💰',
+            entertainment: '🎮',
+            lifestyle: '🏠',
+            default: '📱'
+        };
+
+        return icons[category] || icons.default;
+    }
+
+    // Start monitoring demo links
+    startDemoLinksMonitoring(results) {
+        results.forEach((result, index) => {
+            const appName = result.repository?.name || result.appName;
+
+            if (result.githubPages?.status !== 'built') {
+                // Start monitoring this app
+                setTimeout(() => {
+                    this.checkDemoStatus(appName, result);
+                }, 10000); // Check after 10 seconds
+            }
+        });
+    }
+
+    // Check demo status
+    async checkDemoStatus(appName, result) {
+        if (!window.githubIntegration?.isAuthenticated) return;
+
+        try {
+            const status = await window.githubIntegration.getGitHubPagesStatus(appName);
+
+            if (status.success) {
+                this.updateDemoLinkStatus(appName, status.status);
+
+                if (status.status === 'built') {
+                    this.showToast(`${appName} is now live!`, 'success');
+                } else if (status.status !== 'built') {
+                    // Continue monitoring
+                    setTimeout(() => {
+                        this.checkDemoStatus(appName, result);
+                    }, 30000); // Check again in 30 seconds
+                }
+            }
+        } catch (error) {
+            console.error('Error checking demo status:', error);
+        }
+    }
+
+    // Update demo link status
+    updateDemoLinkStatus(appName, status) {
+        const statusElement = document.getElementById(`demoStatus-${appName}`);
+        const card = document.querySelector(`[data-demo-app="${appName}"]`);
+
+        if (!statusElement || !card) return;
+
+        const statusInfo = this.getDemoStatusInfo(status);
+
+        // Update status display
+        statusElement.className = `demo-status ${statusInfo.class}`;
+        statusElement.innerHTML = `
+            <i class="${statusInfo.icon}"></i>
+            <span>${statusInfo.text}</span>
+        `;
+
+        // Update action buttons
+        const actionsContainer = card.querySelector('.demo-actions');
+        if (actionsContainer) {
+            const githubUsername = document.getElementById('githubUsername')?.value;
+            const demoUrl = `https://${githubUsername}.github.io/${appName}/www/`;
+            const repoUrl = `https://github.com/${githubUsername}/${appName}`;
+
+            actionsContainer.innerHTML = this.createDemoActionButtons(demoUrl, repoUrl, status, appName);
+        }
+    }
+
+    // Enable demo pages
+    async enableDemoPages(appName) {
+        if (!window.githubIntegration?.isAuthenticated) {
+            this.showToast('Please authenticate with GitHub first', 'error');
+            return;
+        }
+
+        try {
+            this.updateDemoLinkStatus(appName, 'building');
+
+            const result = await window.githubIntegration.enableGitHubPages(appName);
+
+            if (result.success) {
+                this.showToast('GitHub Pages enabled! Deploying...', 'success');
+
+                // Start monitoring
+                setTimeout(() => {
+                    this.checkDemoStatus(appName, { repository: { name: appName } });
+                }, 10000);
+            } else {
+                this.updateDemoLinkStatus(appName, 'errored');
+                this.showToast(`Failed to enable Pages: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.updateDemoLinkStatus(appName, 'errored');
+            this.showToast(`Error: ${error.message}`, 'error');
+        }
+    }
+
+    // Track demo click
+    trackDemoClick(appName, demoUrl) {
+        if (window.CONFIG?.features?.analytics) {
+            console.log('Demo clicked:', { appName, demoUrl });
+        }
+
+        // Show feedback
+        this.showToast(`Opening ${appName} demo...`, 'info');
+    }
+
+    // Create individual result card
+    createResultCard(result, index) {
+        const card = document.createElement('div');
+        card.className = 'result-card';
+        card.setAttribute('data-app-index', index);
+
+        const statusClass = result.success ? 'success' : 'error';
+        const statusIcon = result.success ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+
+        card.innerHTML = `
+            <div class="result-header">
+                <div class="result-info">
+                    <h3 class="result-title">${this.escapeHtml(result.appName)}</h3>
+                    <div class="result-status ${statusClass}">
+                        <i class="${statusIcon}"></i>
+                        ${result.success ? 'Generated Successfully' : 'Generation Failed'}
+                    </div>
+                </div>
+                <div class="result-actions">
+                    ${this.createResultActions(result, index)}
+                </div>
+            </div>
+
+            <div class="result-details">
+                <div class="result-meta">
+                    <span class="meta-item">
+                        <i class="fas fa-box"></i>
+                        ${this.escapeHtml(result.packageId || 'N/A')}
+                    </span>
+                    <span class="meta-item">
+                        <i class="fas fa-clock"></i>
+                        ${new Date(result.timestamp || Date.now()).toLocaleString()}
+                    </span>
+                </div>
+
+                ${result.success ? this.createSuccessDetails(result) : this.createErrorDetails(result)}
+            </div>
+        `;
+
+        return card;
+    }
+
+    // Create action buttons for each result
+    createResultActions(result, index) {
+        let actions = '';
+
+        if (result.success && result.repository) {
+            // Live Demo Button
+            const demoButtonHtml = this.createLiveDemoButton(result, index);
+            actions += demoButtonHtml;
+
+            // GitHub Repository Button
+            actions += `
+                <button class="btn btn-sm btn-outline" onclick="window.open('${result.repository.htmlUrl}', '_blank')" title="View repository on GitHub">
+                    <i class="fab fa-github"></i>
+                    Repository
+                </button>
+            `;
+
+            // Download Button
+            actions += `
+                <button class="btn btn-sm btn-secondary" onclick="uiManager.downloadApp(${index})" title="Download app files">
+                    <i class="fas fa-download"></i>
+                    Download
+                </button>
+            `;
+        }
+
+        return actions;
+    }
+
+    // Create live demo button with different states
+    createLiveDemoButton(result, index) {
+        const githubUsername = document.getElementById('githubUsername')?.value;
+        const appName = result.repository?.name || result.appName;
+        const demoUrl = `https://${githubUsername}.github.io/${appName}/www/`;
+
+        // Check GitHub Pages status
+        const pagesStatus = result.githubPages?.status || 'unknown';
+
+        switch (pagesStatus) {
+            case 'built':
+                return `
+                    <button class="btn btn-sm btn-demo" onclick="uiManager.openAppDemo('${demoUrl}', ${index})" title="Open live demo in new tab">
+                        <i class="fas fa-external-link-alt"></i>
+                        Live Demo
+                    </button>
+                `;
+
+            case 'building':
+                return `
+                    <button class="btn btn-sm btn-warning" disabled title="GitHub Pages is building... Please wait">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        Setting up...
+                    </button>
+                `;
+
+            case 'errored':
+                return `
+                    <button class="btn btn-sm btn-error" onclick="uiManager.showPagesSetupHelp('${result.repository?.htmlUrl}')" title="GitHub Pages setup failed - click for help">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Setup Failed
+                    </button>
+                `;
+
+            default:
+                return `
+                    <button class="btn btn-sm btn-outline" onclick="uiManager.enableGitHubPages('${result.repository?.name}', ${index})" title="Enable GitHub Pages for this app">
+                        <i class="fas fa-globe"></i>
+                        Enable Pages
+                    </button>
+                `;
+        }
+    }
+
     // Download all apps (placeholder)
     downloadAllApps() {
-        window.app?.downloadAllApps();
+        if (this.lastGenerationResults) {
+            this.lastGenerationResults.forEach((result, index) => {
+                if (result.success) {
+                    this.downloadApp(index);
+                }
+            });
+        } else {
+            window.app?.downloadAllApps();
+        }
     }
 
     // View on GitHub (placeholder)
     viewOnGitHub() {
-        window.app?.viewOnGitHub();
+        if (this.lastGenerationResults && this.lastGenerationResults.length > 0) {
+            const githubUsername = document.getElementById('githubUsername')?.value;
+            if (githubUsername) {
+                window.open(`https://github.com/${githubUsername}?tab=repositories`, '_blank');
+            }
+        } else {
+            window.app?.viewOnGitHub();
+        }
+    }
+
+    // Create success details section
+    createSuccessDetails(result) {
+        return `
+            <div class="success-details">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Repository:</span>
+                        <span class="detail-value">${result.repository?.name || 'N/A'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Files:</span>
+                        <span class="detail-value">${result.filesCount || 'N/A'} files</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Size:</span>
+                        <span class="detail-value">${this.formatFileSize(result.totalSize || 0)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">GitHub Pages:</span>
+                        <span class="detail-value pages-status-${result.githubPages?.status || 'unknown'}">
+                            ${this.formatPagesStatus(result.githubPages?.status || 'unknown')}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Create error details section
+    createErrorDetails(result) {
+        return `
+            <div class="error-details">
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    ${this.escapeHtml(result.error || 'Unknown error occurred')}
+                </div>
+                ${result.details ? `<div class="error-details-text">${this.escapeHtml(result.details)}</div>` : ''}
+            </div>
+        `;
+    }
+
+    // Open app demo in new tab
+    openAppDemo(demoUrl, index) {
+        // Show loading toast
+        this.showToast('Opening live demo...', 'info');
+
+        // Open demo URL
+        window.open(demoUrl, '_blank');
+
+        // Track demo view
+        if (this.lastGenerationResults && this.lastGenerationResults[index]) {
+            const result = this.lastGenerationResults[index];
+            this.trackDemoView(result.appName, demoUrl);
+        }
+    }
+
+    // Enable GitHub Pages for specific app
+    async enableGitHubPages(repoName, index) {
+        if (!window.githubIntegration?.isAuthenticated) {
+            this.showToast('Please authenticate with GitHub first', 'error');
+            return;
+        }
+
+        try {
+            // Show loading state
+            this.updateDemoButtonState(index, 'enabling');
+
+            // Enable GitHub Pages
+            const result = await window.githubIntegration.enableGitHubPages(repoName);
+
+            if (result.success) {
+                // Update result data
+                if (this.lastGenerationResults && this.lastGenerationResults[index]) {
+                    this.lastGenerationResults[index].githubPages = {
+                        status: 'building',
+                        url: result.url
+                    };
+                }
+
+                // Update button state
+                this.updateDemoButtonState(index, 'building');
+
+                // Show success message
+                this.showToast('GitHub Pages enabled! Building site...', 'success');
+
+                // Check status after delay
+                setTimeout(() => {
+                    this.checkPagesStatus(repoName, index);
+                }, 30000); // Check after 30 seconds
+
+            } else {
+                this.updateDemoButtonState(index, 'error');
+                this.showToast(`Failed to enable GitHub Pages: ${result.error}`, 'error');
+            }
+
+        } catch (error) {
+            this.updateDemoButtonState(index, 'error');
+            this.showToast(`Error enabling GitHub Pages: ${error.message}`, 'error');
+        }
+    }
+
+    // Check GitHub Pages status
+    async checkPagesStatus(repoName, index) {
+        if (!window.githubIntegration?.isAuthenticated) return;
+
+        try {
+            const status = await window.githubIntegration.getGitHubPagesStatus(repoName);
+
+            if (this.lastGenerationResults && this.lastGenerationResults[index]) {
+                this.lastGenerationResults[index].githubPages = status;
+            }
+
+            // Update button based on status
+            if (status.success) {
+                this.updateDemoButtonState(index, status.status);
+
+                if (status.status === 'built') {
+                    this.showToast(`${repoName} is now live!`, 'success');
+                }
+            }
+
+        } catch (error) {
+            console.error('Error checking Pages status:', error);
+        }
+    }
+
+    // Update demo button state
+    updateDemoButtonState(index, status) {
+        const card = document.querySelector(`[data-app-index="${index}"]`);
+        if (!card) return;
+
+        const actionsContainer = card.querySelector('.result-actions');
+        if (!actionsContainer) return;
+
+        // Find and update the demo button
+        const result = this.lastGenerationResults?.[index];
+        if (!result) return;
+
+        const newButtonHtml = this.createLiveDemoButton({
+            ...result,
+            githubPages: { status }
+        }, index);
+
+        // Replace the demo button
+        const existingButton = actionsContainer.querySelector('.btn-demo, .btn-warning, .btn-error, .btn-outline');
+        if (existingButton) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = newButtonHtml;
+            const newButton = tempDiv.firstElementChild;
+
+            if (newButton) {
+                existingButton.replaceWith(newButton);
+            }
+        }
+    }
+
+    // Show GitHub Pages setup help
+    showPagesSetupHelp(repoUrl) {
+        const modal = this.createModal('pagesSetupHelp', 'GitHub Pages Setup Help', `
+            <div class="modal-content">
+                <div class="help-content">
+                    <div class="help-icon">⚙️</div>
+                    <h3>Manual GitHub Pages Setup</h3>
+                    <p>Automatic setup failed. Please enable GitHub Pages manually:</p>
+
+                    <div class="setup-steps">
+                        <ol>
+                            <li><strong>Go to Repository Settings:</strong><br>
+                                <a href="${repoUrl}/settings/pages" target="_blank" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-external-link-alt"></i>
+                                    Open Repository Settings
+                                </a>
+                            </li>
+                            <li><strong>Enable GitHub Pages:</strong><br>
+                                Set source to "Deploy from a branch"
+                            </li>
+                            <li><strong>Select Branch:</strong><br>
+                                Choose "main" branch and "/ (root)" folder
+                            </li>
+                            <li><strong>Save Settings:</strong><br>
+                                Click "Save" and wait for deployment
+                            </li>
+                            <li><strong>Access Your App:</strong><br>
+                                Your app will be available at the provided URL + "/www/"
+                            </li>
+                        </ol>
+                    </div>
+
+                    <div class="help-note">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Note:</strong> It may take a few minutes for your site to become available after enabling Pages.
+                    </div>
+                </div>
+            </div>
+        `);
+
+        this.showModal(modal);
+    }
+
+    // Download individual app
+    downloadApp(index) {
+        if (!this.lastGenerationResults || !this.lastGenerationResults[index]) {
+            this.showToast('App data not available', 'error');
+            return;
+        }
+
+        const result = this.lastGenerationResults[index];
+
+        // This would typically trigger a download of the app files
+        // For now, we'll show a message
+        this.showToast(`Downloading ${result.appName}...`, 'info');
+
+        // In a real implementation, this would:
+        // 1. Fetch the app files from GitHub
+        // 2. Create a ZIP archive
+        // 3. Trigger download
+
+        // Placeholder implementation
+        window.app?.downloadApp?.(result);
+    }
+
+    // Track demo view for analytics
+    trackDemoView(appName, demoUrl) {
+        if (window.CONFIG?.features?.analytics) {
+            // Track demo view event
+            console.log('Demo viewed:', { appName, demoUrl });
+        }
+    }
+
+    // Format file size
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    // Format GitHub Pages status
+    formatPagesStatus(status) {
+        const statusMap = {
+            'built': '✅ Live',
+            'building': '🔄 Building',
+            'errored': '❌ Failed',
+            'unknown': '⚪ Not Set'
+        };
+        return statusMap[status] || '⚪ Unknown';
+    }
+
+    // Create live demo button for build history items
+    createBuildHistoryLiveDemoButton(build, index) {
+        // Only show for successful builds
+        if (build.status !== window.buildStatusManager?.STATUS?.SUCCESS) {
+            return '';
+        }
+
+        const githubUsername = document.getElementById('githubUsername')?.value;
+        if (!githubUsername) {
+            return '';
+        }
+
+        const appName = build.repositoryName || build.appName;
+        const demoUrl = `https://${githubUsername}.github.io/${appName}/www/`;
+
+        // Check GitHub Pages status from build data
+        const pagesStatus = build.githubPages?.status || 'unknown';
+
+        switch (pagesStatus) {
+            case 'built':
+                return `
+                    <button class="btn btn-sm btn-demo" onclick="uiManager.openBuildDemo('${demoUrl}', '${build.buildId}', '${build.appName}')" title="Open live demo in new tab">
+                        <i class="fas fa-external-link-alt"></i>
+                        Live Demo
+                    </button>
+                `;
+
+            case 'building':
+                return `
+                    <button class="btn btn-sm btn-warning" disabled title="GitHub Pages is building... Please wait">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        Setting up...
+                    </button>
+                `;
+
+            case 'errored':
+                return `
+                    <button class="btn btn-sm btn-error" onclick="uiManager.showPagesSetupHelp('https://github.com/${githubUsername}/${appName}')" title="GitHub Pages setup failed - click for help">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Setup Failed
+                    </button>
+                `;
+
+            default:
+                return `
+                    <button class="btn btn-sm btn-outline" onclick="uiManager.enableBuildGitHubPages('${appName}', '${build.buildId}', ${index})" title="Enable GitHub Pages for this app">
+                        <i class="fas fa-globe"></i>
+                        Enable Pages
+                    </button>
+                `;
+        }
+    }
+
+    // Open build demo in new tab
+    openBuildDemo(demoUrl, buildId, appName) {
+        // Show loading toast
+        this.showToast(`Opening ${appName} demo...`, 'info');
+
+        // Open demo URL
+        window.open(demoUrl, '_blank');
+
+        // Track demo view
+        this.trackBuildDemoView(buildId, appName, demoUrl);
+    }
+
+    // Enable GitHub Pages for build history item
+    async enableBuildGitHubPages(repoName, buildId, index) {
+        if (!window.githubIntegration?.isAuthenticated) {
+            this.showToast('Please authenticate with GitHub first', 'error');
+            return;
+        }
+
+        try {
+            // Show loading state
+            this.updateBuildDemoButtonState(buildId, 'enabling');
+
+            // Enable GitHub Pages
+            const result = await window.githubIntegration.enableGitHubPages(repoName);
+
+            if (result.success) {
+                // Update build data
+                this.updateBuildPagesStatus(buildId, {
+                    status: 'building',
+                    url: result.url
+                });
+
+                // Update button state
+                this.updateBuildDemoButtonState(buildId, 'building');
+
+                // Show success message
+                this.showToast('GitHub Pages enabled! Building site...', 'success');
+
+                // Check status after delay
+                setTimeout(() => {
+                    this.checkBuildPagesStatus(repoName, buildId);
+                }, 30000); // Check after 30 seconds
+
+            } else {
+                this.updateBuildDemoButtonState(buildId, 'error');
+                this.showToast(`Failed to enable GitHub Pages: ${result.error}`, 'error');
+            }
+
+        } catch (error) {
+            this.updateBuildDemoButtonState(buildId, 'error');
+            this.showToast(`Error enabling GitHub Pages: ${error.message}`, 'error');
+        }
+    }
+
+    // Check GitHub Pages status for build history item
+    async checkBuildPagesStatus(repoName, buildId) {
+        if (!window.githubIntegration?.isAuthenticated) return;
+
+        try {
+            const status = await window.githubIntegration.getGitHubPagesStatus(repoName);
+
+            // Update build data
+            this.updateBuildPagesStatus(buildId, status);
+
+            // Update button based on status
+            if (status.success) {
+                this.updateBuildDemoButtonState(buildId, status.status);
+
+                if (status.status === 'built') {
+                    this.showToast(`${repoName} is now live!`, 'success');
+                }
+            }
+
+        } catch (error) {
+            console.error('Error checking build Pages status:', error);
+        }
+    }
+
+    // Update build demo button state
+    updateBuildDemoButtonState(buildId, status) {
+        const buildItem = document.querySelector(`[data-build-id="${buildId}"]`);
+        if (!buildItem) return;
+
+        const actionsContainer = buildItem.querySelector('.build-actions');
+        if (!actionsContainer) return;
+
+        // Find the build data
+        const builds = window.buildStatusManager?.loadBuildHistory() || [];
+        const build = builds.find(b => b.buildId === buildId);
+        if (!build) return;
+
+        // Create new button HTML
+        const newButtonHtml = this.createBuildHistoryLiveDemoButton({
+            ...build,
+            githubPages: { status }
+        }, 0);
+
+        // Replace the demo button
+        const existingButton = actionsContainer.querySelector('.btn-demo, .btn-warning, .btn-error, .btn-outline');
+        if (existingButton && newButtonHtml) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = newButtonHtml;
+            const newButton = tempDiv.firstElementChild;
+
+            if (newButton) {
+                existingButton.replaceWith(newButton);
+            }
+        }
+    }
+
+    // Update build Pages status in storage
+    updateBuildPagesStatus(buildId, pagesStatus) {
+        if (!window.buildStatusManager) return;
+
+        const builds = window.buildStatusManager.loadBuildHistory();
+        const buildIndex = builds.findIndex(b => b.buildId === buildId);
+
+        if (buildIndex !== -1) {
+            builds[buildIndex].githubPages = pagesStatus;
+            window.buildStatusManager.saveBuildHistory(builds);
+        }
+    }
+
+    // Track build demo view for analytics
+    trackBuildDemoView(buildId, appName, demoUrl) {
+        if (window.CONFIG?.features?.analytics) {
+            console.log('Build demo viewed:', { buildId, appName, demoUrl });
+        }
+    }
+
+    // Escape HTML to prevent XSS
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Test function to simulate generation results (for development/demo)
+    showTestResults() {
+        const githubUsername = document.getElementById('githubUsername')?.value || 'demo-user';
+
+        const testResults = [
+            {
+                success: true,
+                appName: 'WeatherApp',
+                packageId: 'com.example.weather',
+                timestamp: new Date().toISOString(),
+                repository: {
+                    name: 'WeatherApp',
+                    htmlUrl: `https://github.com/${githubUsername}/WeatherApp`,
+                    fullName: `${githubUsername}/WeatherApp`
+                },
+                githubPages: {
+                    status: 'built',
+                    url: `https://${githubUsername}.github.io/WeatherApp/`
+                },
+                category: 'weather',
+                filesCount: 15,
+                totalSize: 245760
+            },
+            {
+                success: true,
+                appName: 'TaskManager',
+                packageId: 'com.example.tasks',
+                timestamp: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
+                repository: {
+                    name: 'TaskManager',
+                    htmlUrl: `https://github.com/${githubUsername}/TaskManager`,
+                    fullName: `${githubUsername}/TaskManager`
+                },
+                githubPages: {
+                    status: 'building'
+                },
+                category: 'productivity',
+                filesCount: 22,
+                totalSize: 387200
+            },
+            {
+                success: true,
+                appName: 'Calculator',
+                packageId: 'com.example.calculator',
+                timestamp: new Date(Date.now() - 600000).toISOString(), // 10 minutes ago
+                repository: {
+                    name: 'Calculator',
+                    htmlUrl: `https://github.com/${githubUsername}/Calculator`,
+                    fullName: `${githubUsername}/Calculator`
+                },
+                githubPages: {
+                    status: 'unknown'
+                },
+                category: 'utilities',
+                filesCount: 12,
+                totalSize: 156800
+            },
+            {
+                success: false,
+                appName: 'FailedApp',
+                packageId: 'com.example.failed',
+                timestamp: new Date(Date.now() - 900000).toISOString(), // 15 minutes ago
+                error: 'GitHub API rate limit exceeded',
+                details: 'Please wait before generating more apps or check your GitHub token permissions.',
+                category: 'default'
+            }
+        ];
+
+        this.displayResults(testResults);
+
+        // Store test apps as recently generated
+        testResults.forEach(result => {
+            if (result.success) {
+                this.storeRecentlyGeneratedApp({
+                    repositoryName: result.repository.name,
+                    appName: result.appName,
+                    githubUrl: result.repository.htmlUrl,
+                    demoUrl: `https://${githubUsername}.github.io/${result.repository.name}/www/`,
+                    status: 'deployed'
+                });
+            }
+        });
+    }
+
+    // Create test build history data (for development/demo)
+    createTestBuildHistory() {
+        if (!window.buildStatusManager) {
+            console.warn('Build status manager not available');
+            return;
+        }
+
+        const githubUsername = document.getElementById('githubUsername')?.value || 'demo-user';
+
+        const testBuilds = [
+            {
+                buildId: 'build-001',
+                appName: 'WeatherApp',
+                repositoryName: 'WeatherApp',
+                workflowId: 'android-workflow',
+                branch: 'main',
+                status: window.buildStatusManager.STATUS.SUCCESS,
+                timestamp: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+                duration: '3m 45s',
+                buildUrl: `https://codemagic.io/apps/app-id/builds/build-001`,
+                projectUrl: `https://codemagic.io/apps/app-id`,
+                artifacts: ['app-release.apk', 'app-debug.apk'],
+                githubPages: {
+                    status: 'built',
+                    url: `https://${githubUsername}.github.io/WeatherApp/`
+                }
+            },
+            {
+                buildId: 'build-002',
+                appName: 'TaskManager',
+                repositoryName: 'TaskManager',
+                workflowId: 'android-workflow',
+                branch: 'main',
+                status: window.buildStatusManager.STATUS.SUCCESS,
+                timestamp: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
+                duration: '4m 12s',
+                buildUrl: `https://codemagic.io/apps/app-id/builds/build-002`,
+                projectUrl: `https://codemagic.io/apps/app-id`,
+                artifacts: ['app-release.apk'],
+                githubPages: {
+                    status: 'building'
+                }
+            },
+            {
+                buildId: 'build-003',
+                appName: 'Calculator',
+                repositoryName: 'Calculator',
+                workflowId: 'android-workflow',
+                branch: 'main',
+                status: window.buildStatusManager.STATUS.SUCCESS,
+                timestamp: new Date(Date.now() - 10800000).toISOString(), // 3 hours ago
+                duration: '2m 58s',
+                buildUrl: `https://codemagic.io/apps/app-id/builds/build-003`,
+                projectUrl: `https://codemagic.io/apps/app-id`,
+                artifacts: ['app-release.apk'],
+                githubPages: {
+                    status: 'unknown'
+                }
+            },
+            {
+                buildId: 'build-004',
+                appName: 'NotesApp',
+                repositoryName: 'NotesApp',
+                workflowId: 'android-workflow',
+                branch: 'main',
+                status: window.buildStatusManager.STATUS.SUCCESS,
+                timestamp: new Date(Date.now() - 14400000).toISOString(), // 4 hours ago
+                duration: '5m 23s',
+                buildUrl: `https://codemagic.io/apps/app-id/builds/build-004`,
+                projectUrl: `https://codemagic.io/apps/app-id`,
+                artifacts: ['app-release.apk', 'app-debug.apk'],
+                githubPages: {
+                    status: 'errored'
+                }
+            },
+            {
+                buildId: 'build-005',
+                appName: 'FailedBuild',
+                repositoryName: 'FailedBuild',
+                workflowId: 'android-workflow',
+                branch: 'main',
+                status: window.buildStatusManager.STATUS.FAILED,
+                timestamp: new Date(Date.now() - 18000000).toISOString(), // 5 hours ago
+                duration: '1m 15s',
+                buildUrl: `https://codemagic.io/apps/app-id/builds/build-005`,
+                projectUrl: `https://codemagic.io/apps/app-id`,
+                artifacts: []
+                // No GitHub Pages for failed builds
+            }
+        ];
+
+        // Save test builds to storage
+        window.buildStatusManager.saveBuildHistory(testBuilds);
+
+        this.showToast('Test build history created!', 'success');
     }
 
     // Get selected templates

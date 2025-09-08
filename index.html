@@ -26,6 +26,10 @@
                     </div>
                 </div>
                 <div class="header-actions">
+                    <button class="btn btn-demo" id="liveDemoBtn" title="View live demo of a generated app">
+                        <i class="fas fa-external-link-alt"></i>
+                        Live Demo
+                    </button>
                     <button class="btn btn-outline" id="loadConfigBtn">
                         <i class="fas fa-upload"></i>
                         Load Config
@@ -37,6 +41,14 @@
                     <button class="btn btn-primary" id="generateAllBtn">
                         <i class="fas fa-rocket"></i>
                         Generate All Apps
+                    </button>
+                    <button class="btn btn-outline" id="testResultsBtn" onclick="uiManager.showTestResults()" title="Show demo results (for testing)">
+                        <i class="fas fa-vial"></i>
+                        Test Results
+                    </button>
+                    <button class="btn btn-outline" id="testBuildHistoryBtn" onclick="uiManager.createTestBuildHistory()" title="Create test build history (for testing)">
+                        <i class="fas fa-history"></i>
+                        Test History
                     </button>
                 </div>
             </div>
@@ -320,6 +332,17 @@
                         </button>
                     </div>
                 </div>
+                <!-- Quick Demo Access -->
+                <div class="demo-links-section" id="demoLinksSection" style="display: none;">
+                    <div class="demo-links-header">
+                        <h3><i class="fas fa-external-link-alt"></i> Live Demos</h3>
+                        <p>Your apps are being deployed to GitHub Pages. Click below to access them:</p>
+                    </div>
+                    <div class="demo-links-grid" id="demoLinksGrid">
+                        <!-- Demo links will be populated here -->
+                    </div>
+                </div>
+
                 <div class="results-grid" id="resultsGrid">
                     <!-- Results will be populated here -->
                 </div>

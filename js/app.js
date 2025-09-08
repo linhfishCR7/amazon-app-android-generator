@@ -34,6 +34,7 @@ class CordovaAppGeneratorApp {
             window.templateManager = this.templateManager;
             window.generator = this.generator;
             window.github = this.github;
+            window.githubIntegration = this.github; // Add alias for consistency
             window.codemagic = this.codemagic;
             window.cordovaBuilder = this.cordovaBuilder;
             window.buildStatusManager = this.buildStatusManager;
@@ -48,6 +49,10 @@ class CordovaAppGeneratorApp {
 
             // Initialize UI after core modules and DOM are ready
             this.ui = new UIManager();
+
+            // Make UI manager globally available
+            window.uiManager = this.ui;
+            window.ui = this.ui; // Keep both for compatibility
             window.ui = this.ui;
 
             // Setup event listeners
