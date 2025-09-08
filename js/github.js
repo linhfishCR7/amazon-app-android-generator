@@ -9,6 +9,7 @@ class GitHubIntegration {
         this.username = null;
         this.token = null;
         this.apiBase = 'https://api.github.com';
+        this.apiUrl = 'https://api.github.com'; // Add apiUrl property for consistency
         this.eventListeners = new Map();
     }
 
@@ -218,8 +219,12 @@ class GitHubIntegration {
             this.emit('repo:create:success', { repository, appConfig });
 
             // Auto-enable GitHub Pages for immediate demo access
+            // Use arrow function to preserve 'this' context
             setTimeout(() => {
-                this.autoEnablePages(repository.name);
+                console.log('🚀 Auto-enabling Pages for newly created repository:', repository.name);
+                this.autoEnablePages(repository.name).catch(error => {
+                    console.error('❌ Auto-enable Pages failed for:', repository.name, error);
+                });
             }, 2000);
 
             return repository;
@@ -236,8 +241,29 @@ class GitHubIntegration {
             throw new Error('Not authenticated with GitHub');
         }
 
+        // Validate and encode repository name
+        if (!repoName || repoName.trim() === '') {
+            console.error('❌ Invalid repository name:', repoName);
+            return {
+                success: false,
+                error: 'Invalid repository name provided'
+            };
+        }
+
+        const encodedRepoName = encodeURIComponent(repoName.trim());
+        const apiUrl = `${this.apiUrl}/repos/${this.username}/${encodedRepoName}/pages`;
+
+        console.log('🔧 Enabling GitHub Pages for:', {
+            repoName: repoName,
+            encodedRepoName: encodedRepoName,
+            username: this.username,
+            apiUrl: apiUrl,
+            branch: branch,
+            path: path
+        });
+
         try {
-            const response = await fetch(`${this.apiUrl}/repos/${this.username}/${repoName}/pages`, {
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Authorization': `token ${this.token}`,
@@ -252,57 +278,160 @@ class GitHubIntegration {
                 })
             });
 
+            console.log('📊 GitHub Pages API Response:', {
+                status: response.status,
+                statusText: response.statusText,
+                url: response.url,
+                headers: Object.fromEntries(response.headers.entries())
+            });
+
             if (response.status === 201) {
-                const pagesInfo = await response.json();
-                return {
-                    success: true,
-                    url: pagesInfo.html_url,
-                    status: pagesInfo.status
-                };
+                // Success - Pages enabled
+                try {
+                    const pagesInfo = await response.json();
+                    console.log('✅ GitHub Pages enabled successfully:', pagesInfo);
+                    return {
+                        success: true,
+                        url: pagesInfo.html_url,
+                        status: pagesInfo.status
+                    };
+                } catch (jsonError) {
+                    console.error('❌ Failed to parse success response JSON:', jsonError);
+                    return {
+                        success: true,
+                        url: `https://${this.username}.github.io/${repoName}`,
+                        status: 'building'
+                    };
+                }
             } else if (response.status === 409) {
                 // Pages already enabled, get current status
+                console.log('📋 GitHub Pages already enabled, getting current status...');
                 return await this.getGitHubPagesStatus(repoName);
             } else {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to enable GitHub Pages');
+                // Error response - try to parse error message
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+                try {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorData.error || errorMessage;
+                        console.error('❌ GitHub API Error Response:', errorData);
+                    } else {
+                        const textResponse = await response.text();
+                        if (textResponse) {
+                            errorMessage = textResponse;
+                        }
+                        console.error('❌ GitHub API Non-JSON Error Response:', textResponse);
+                    }
+                } catch (parseError) {
+                    console.error('❌ Failed to parse error response:', parseError);
+                }
+
+                throw new Error(errorMessage);
             }
         } catch (error) {
-            console.error('Error enabling GitHub Pages:', error);
+            console.error('❌ Error enabling GitHub Pages:', {
+                error: error.message,
+                repoName: repoName,
+                username: this.username,
+                stack: error.stack
+            });
+
             return {
                 success: false,
-                error: error.message
+                error: error.message || 'Failed to enable GitHub Pages'
             };
         }
     }
 
     // Get GitHub Pages status
     async getGitHubPagesStatus(repoName) {
+        // Validate and encode repository name
+        if (!repoName || repoName.trim() === '') {
+            console.error('❌ Invalid repository name for status check:', repoName);
+            return {
+                success: false,
+                error: 'Invalid repository name provided'
+            };
+        }
+
+        const encodedRepoName = encodeURIComponent(repoName.trim());
+        const apiUrl = `${this.apiUrl}/repos/${this.username}/${encodedRepoName}/pages`;
+
+        console.log('🔍 Getting GitHub Pages status for:', {
+            repoName: repoName,
+            encodedRepoName: encodedRepoName,
+            username: this.username,
+            apiUrl: apiUrl
+        });
+
         try {
-            const response = await fetch(`${this.apiUrl}/repos/${this.username}/${repoName}/pages`, {
+            const response = await fetch(apiUrl, {
                 headers: {
                     'Authorization': `token ${this.token}`,
                     'Accept': 'application/vnd.github.v3+json'
                 }
             });
 
+            console.log('📊 GitHub Pages Status API Response:', {
+                status: response.status,
+                statusText: response.statusText,
+                url: response.url
+            });
+
             if (response.ok) {
-                const pagesInfo = await response.json();
-                return {
-                    success: true,
-                    url: pagesInfo.html_url,
-                    status: pagesInfo.status,
-                    source: pagesInfo.source
-                };
-            } else {
+                try {
+                    const pagesInfo = await response.json();
+                    console.log('✅ GitHub Pages status retrieved:', pagesInfo);
+                    return {
+                        success: true,
+                        url: pagesInfo.html_url,
+                        status: pagesInfo.status,
+                        source: pagesInfo.source
+                    };
+                } catch (jsonError) {
+                    console.error('❌ Failed to parse status response JSON:', jsonError);
+                    return {
+                        success: false,
+                        error: 'Failed to parse GitHub Pages status response'
+                    };
+                }
+            } else if (response.status === 404) {
+                console.log('📋 GitHub Pages not enabled for repository');
                 return {
                     success: false,
                     error: 'GitHub Pages not enabled'
                 };
+            } else {
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+                try {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorData.error || errorMessage;
+                    }
+                } catch (parseError) {
+                    console.error('❌ Failed to parse error response:', parseError);
+                }
+
+                return {
+                    success: false,
+                    error: errorMessage
+                };
             }
         } catch (error) {
+            console.error('❌ Error getting GitHub Pages status:', {
+                error: error.message,
+                repoName: repoName,
+                username: this.username,
+                stack: error.stack
+            });
+
             return {
                 success: false,
-                error: error.message
+                error: error.message || 'Failed to get GitHub Pages status'
             };
         }
     }
@@ -331,59 +460,134 @@ class GitHubIntegration {
 
     // Auto-enable GitHub Pages after successful repository creation
     async autoEnablePages(repoName) {
-        try {
-            // Wait a moment for repository to be fully created
-            await new Promise(resolve => setTimeout(resolve, 2000));
+        console.log('🚀 Auto-enabling GitHub Pages for:', repoName);
 
+        try {
+            // Validate repository name
+            if (!repoName || repoName.trim() === '') {
+                console.error('❌ Invalid repository name for auto-enable:', repoName);
+                return {
+                    success: false,
+                    error: 'Invalid repository name provided'
+                };
+            }
+
+            // Wait a moment for repository to be fully created
+            console.log('⏳ Waiting for repository to be fully created...');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            console.log('🔧 Calling enableGitHubPages...');
             const result = await this.enableGitHubPages(repoName);
 
             if (result.success) {
+                console.log('✅ Auto-enable successful, starting status monitoring...');
                 // Start checking status periodically
                 this.startPagesStatusMonitoring(repoName);
+
+                // Emit success event with proper context binding
+                if (typeof this.emit === 'function') {
+                    this.emit('pages:auto-enabled', { repoName, result });
+                } else {
+                    console.warn('⚠️ Event emitter not available in current context');
+                }
+            } else {
+                console.error('❌ Auto-enable failed:', result.error);
+
+                // Emit error event with proper context binding
+                if (typeof this.emit === 'function') {
+                    this.emit('pages:auto-enable-failed', { repoName, error: result.error });
+                } else {
+                    console.warn('⚠️ Event emitter not available in current context');
+                }
             }
 
             return result;
 
         } catch (error) {
-            console.error('Auto-enable Pages failed:', error);
+            console.error('❌ Auto-enable Pages failed:', {
+                error: error.message,
+                repoName: repoName,
+                stack: error.stack
+            });
+
+            // Emit error event with proper context binding
+            if (typeof this.emit === 'function') {
+                this.emit('pages:auto-enable-error', { repoName, error: error.message });
+            } else {
+                console.warn('⚠️ Event emitter not available in current context');
+            }
+
             return {
                 success: false,
-                error: error.message
+                error: error.message || 'Auto-enable GitHub Pages failed'
             };
         }
     }
 
     // Monitor GitHub Pages status
     startPagesStatusMonitoring(repoName, maxAttempts = 10) {
+        console.log('📊 Starting GitHub Pages status monitoring for:', repoName);
+
         let attempts = 0;
 
+        // Bind context to ensure 'this' is available in async callbacks
         const checkStatus = async () => {
             attempts++;
+            console.log(`🔍 Checking Pages status (attempt ${attempts}/${maxAttempts}) for:`, repoName);
 
             try {
                 const status = await this.getGitHubPagesStatus(repoName);
 
                 if (status.success && status.status === 'built') {
                     // Pages is ready
-                    this.emit('pages:ready', { repoName, status });
+                    console.log('✅ GitHub Pages is ready for:', repoName);
+
+                    if (typeof this.emit === 'function') {
+                        this.emit('pages:ready', { repoName, status });
+                    } else {
+                        console.warn('⚠️ Event emitter not available for pages:ready event');
+                    }
                     return;
+                } else if (status.success) {
+                    console.log(`📋 Pages status for ${repoName}:`, status.status);
+                } else {
+                    console.log(`❌ Pages status check failed for ${repoName}:`, status.error);
                 }
 
                 if (attempts < maxAttempts) {
                     // Check again in 30 seconds
-                    setTimeout(checkStatus, 30000);
+                    console.log(`⏳ Scheduling next status check for ${repoName} in 30 seconds...`);
+                    setTimeout(() => checkStatus(), 30000);
                 } else {
                     // Max attempts reached
-                    this.emit('pages:timeout', { repoName, attempts });
+                    console.warn(`⏰ Max attempts (${maxAttempts}) reached for ${repoName}`);
+
+                    if (typeof this.emit === 'function') {
+                        this.emit('pages:timeout', { repoName, attempts });
+                    } else {
+                        console.warn('⚠️ Event emitter not available for pages:timeout event');
+                    }
                 }
 
             } catch (error) {
-                console.error('Error monitoring Pages status:', error);
+                console.error('❌ Error monitoring Pages status:', {
+                    error: error.message,
+                    repoName: repoName,
+                    attempt: attempts,
+                    stack: error.stack
+                });
+
+                if (typeof this.emit === 'function') {
+                    this.emit('pages:monitor-error', { repoName, error: error.message, attempt: attempts });
+                } else {
+                    console.warn('⚠️ Event emitter not available for pages:monitor-error event');
+                }
             }
         };
 
-        // Start monitoring
-        setTimeout(checkStatus, 10000); // First check after 10 seconds
+        // Start monitoring with proper context binding
+        console.log(`⏳ Scheduling first status check for ${repoName} in 10 seconds...`);
+        setTimeout(() => checkStatus(), 10000); // First check after 10 seconds
     }
 
     // Push code to repository using GitHub Contents API

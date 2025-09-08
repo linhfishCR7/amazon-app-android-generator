@@ -262,6 +262,18 @@ body {
     color: white;
 }
 
+.btn-outline-info {
+    background-color: transparent;
+    color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+.btn-outline-info:hover:not(:disabled) {
+    background-color: #17a2b8;
+    color: white;
+    border-color: #17a2b8;
+}
+
 .btn-sm {
     padding: var(--spacing-xs) var(--spacing-md);
     font-size: var(--font-size-xs);
@@ -2764,7 +2776,7 @@ section {
 .toast-container {
     position: fixed;
     top: var(--spacing-lg);
-    right: var(--spacing-lg);
+    right: 500px;
     z-index: var(--z-toast);
     display: flex;
     flex-direction: column;

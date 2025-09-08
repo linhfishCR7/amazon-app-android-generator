@@ -194,6 +194,83 @@
             margin-top: 30px;
             border-left: 4px solid #4A90E2;
         }
+        .url-input-container input[type="url"] {
+            transition: all 0.3s ease;
+        }
+        .url-input-container input[type="url"]:focus {
+            outline: none;
+            border-color: #4A90E2;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+        }
+        .url-input-container input[type="url"]::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        .url-preview img {
+            transition: all 0.3s ease;
+        }
+        .url-preview img:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #4A90E2;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .paste-area {
+            padding: 30px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            border-radius: 10px;
+        }
+        .paste-area.paste-ready {
+            background: rgba(108, 207, 127, 0.1);
+            border: 2px dashed rgba(108, 207, 127, 0.5);
+            transform: scale(1.02);
+        }
+        .paste-area.paste-active {
+            background: rgba(74, 144, 226, 0.1);
+            border: 2px dashed rgba(74, 144, 226, 0.5);
+            transform: scale(1.05);
+        }
+        .paste-preview img {
+            transition: all 0.3s ease;
+        }
+        .paste-preview img:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        kbd {
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .paste-success {
+            background: rgba(108, 207, 127, 0.2);
+            border: 1px solid rgba(108, 207, 127, 0.5);
+            color: #6BCF7F;
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .paste-error {
+            background: rgba(255, 71, 87, 0.2);
+            border: 1px solid rgba(255, 71, 87, 0.5);
+            color: #FF4757;
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -201,8 +278,11 @@
         <div style="text-align: center;">
             <h1>🎨 Automated Image Generator</h1>
             <p style="font-size: 1.1em; opacity: 0.9; margin: 10px 0;">
-                Upload one source image and automatically generate all 5 required app store images
+                Upload, paste, or load from URL - automatically generate all 5 required app store images
             </p>
+            <div style="font-size: 0.9em; opacity: 0.7; margin: 15px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px;">
+                💡 <strong>Quick Tip:</strong> Press <kbd style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">Ctrl+V</kbd> (or <kbd style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">Cmd+V</kbd>) to paste images from clipboard
+            </div>
             <div style="margin: 15px 0;">
                 <a href="enhanced-converter.html" class="btn" style="text-decoration: none; display: inline-block;">
                     ← Back to Enhanced Converter
@@ -218,6 +298,54 @@
                 <div class="upload-subtext">Supports PNG, JPG/JPEG, and SVG files</div>
             </div>
             <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/svg+xml">
+        </div>
+
+        <!-- Paste Section -->
+        <div class="upload-section" id="pasteSection">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="font-size: 1.5em; margin-bottom: 10px;">📋</div>
+                <div style="font-size: 1.1em; font-weight: 600; margin-bottom: 5px;">Or Paste from Clipboard</div>
+                <div style="font-size: 0.9em; opacity: 0.7;">Press Ctrl+V (Cmd+V on Mac) to paste images</div>
+            </div>
+            <div class="paste-area" id="pasteArea">
+                <div class="paste-icon" style="font-size: 3em; margin-bottom: 15px; opacity: 0.6;">📋</div>
+                <div style="font-size: 1.1em; margin-bottom: 8px;">Ready for paste</div>
+                <div style="font-size: 0.9em; opacity: 0.7;">Screenshots, copied images, or clipboard content</div>
+                <div class="paste-status" id="pasteStatus" style="margin-top: 15px; font-size: 0.85em; opacity: 0.8;">
+                    Click anywhere on this page, then press <kbd style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">Ctrl+V</kbd>
+                </div>
+            </div>
+            <div class="paste-preview" id="pastePreview" style="display: none; margin-top: 20px; text-align: center;">
+                <div style="font-size: 0.9em; opacity: 0.8; margin-bottom: 10px;">Pasted Image Preview:</div>
+                <img id="pastePreviewImage" style="max-width: 200px; max-height: 200px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; background: white;">
+            </div>
+        </div>
+
+        <!-- URL Input Section -->
+        <div class="upload-section" id="urlSection">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="font-size: 1.5em; margin-bottom: 10px;">🔗</div>
+                <div style="font-size: 1.1em; font-weight: 600; margin-bottom: 5px;">Or Enter Image URL</div>
+                <div style="font-size: 0.9em; opacity: 0.7;">Load an image directly from a web URL</div>
+            </div>
+            <div class="url-input-container">
+                <input type="url" id="imageUrlInput" placeholder="https://example.com/image.png"
+                       style="width: 100%; padding: 12px; border: 2px solid rgba(255,255,255,0.3);
+                              border-radius: 8px; background: rgba(255,255,255,0.1); color: white;
+                              font-size: 14px; margin-bottom: 15px;">
+                <div style="text-align: center;">
+                    <button class="btn btn-primary" onclick="loadImageFromUrl()" id="loadUrlBtn">
+                        🔗 Load Image from URL
+                    </button>
+                    <button class="btn" onclick="clearUrlInput()" id="clearUrlBtn" style="display: none;">
+                        🗑️ Clear URL
+                    </button>
+                </div>
+            </div>
+            <div class="url-preview" id="urlPreview" style="display: none; margin-top: 20px; text-align: center;">
+                <div style="font-size: 0.9em; opacity: 0.8; margin-bottom: 10px;">URL Preview:</div>
+                <img id="urlPreviewImage" style="max-width: 200px; max-height: 200px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; background: white;">
+            </div>
         </div>
 
         <!-- Source Image Preview -->
@@ -275,13 +403,33 @@
         <div class="instructions">
             <h3>📋 How It Works</h3>
             <ul>
-                <li><strong>Upload:</strong> Choose a high-quality source image (PNG, JPG, or SVG)</li>
+                <li><strong>Upload, Paste, or URL:</strong> Choose a high-quality source image by uploading a file, pasting from clipboard, or entering an image URL</li>
+                <li><strong>Clipboard Support:</strong> Paste screenshots, copied images, or image URLs directly with Ctrl+V (Cmd+V on Mac)</li>
+                <li><strong>URL Support:</strong> Load images directly from web URLs (supports common image hosting sites)</li>
                 <li><strong>Automatic Generation:</strong> Creates 5 optimized images with proper dimensions</li>
                 <li><strong>App Store Icon (512×512):</strong> Square format with 10% padding</li>
                 <li><strong>Small App Icon (114×114):</strong> Square format for notifications</li>
                 <li><strong>Feature Graphics (1280×800) × 3:</strong> Landscape format with white background</li>
                 <li><strong>Download:</strong> Get all images individually or as a batch</li>
             </ul>
+            <div style="margin-top: 15px; padding: 15px; background: rgba(74, 144, 226, 0.1); border-radius: 8px; border-left: 3px solid #4A90E2;">
+                <strong>💡 Pro Tips:</strong>
+                <ul style="margin: 10px 0 0 0;">
+                    <li>For best results, use images with minimum 512×512px resolution</li>
+                    <li>Paste works with screenshots, copied images from browsers, and design tools</li>
+                    <li>URL images are automatically validated for size and format</li>
+                    <li>Supported URL sources: Direct image links, Imgur, Unsplash, Pexels, Pixabay</li>
+                </ul>
+            </div>
+            <div style="margin-top: 15px; padding: 15px; background: rgba(108, 207, 127, 0.1); border-radius: 8px; border-left: 3px solid #6BCF7F;">
+                <strong>🚀 Quick Methods:</strong>
+                <ul style="margin: 10px 0 0 0;">
+                    <li><strong>Screenshots:</strong> Take a screenshot (Print Screen, Cmd+Shift+4, etc.) then paste here</li>
+                    <li><strong>Copy from Browser:</strong> Right-click any image → Copy, then paste here</li>
+                    <li><strong>Design Tools:</strong> Copy from Photoshop, Figma, Canva, etc. then paste here</li>
+                    <li><strong>Image URLs:</strong> Copy an image URL and paste it to auto-load</li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -294,6 +442,167 @@
         let sourceImageFile = null;
         let sourceImageData = null;
         let generatedImages = [];
+
+        // Initialize clipboard paste functionality
+        function initializeClipboardPaste() {
+            // Add paste event listener to document
+            document.addEventListener('paste', handlePasteEvent);
+
+            // Add visual feedback for paste readiness
+            document.addEventListener('focus', updatePasteStatus);
+            document.addEventListener('click', updatePasteStatus);
+
+            // Update initial paste status
+            updatePasteStatus();
+        }
+
+        // Handle paste events
+        async function handlePasteEvent(e) {
+            e.preventDefault();
+
+            const pasteArea = document.getElementById('pasteArea');
+            const pasteStatus = document.getElementById('pasteStatus');
+
+            // Add visual feedback
+            pasteArea.classList.add('paste-active');
+            pasteStatus.innerHTML = '<span class="loading-spinner"></span>Processing paste...';
+
+            try {
+                const clipboardItems = e.clipboardData.items;
+                let imageFound = false;
+
+                // Look for image data in clipboard
+                for (let i = 0; i < clipboardItems.length; i++) {
+                    const item = clipboardItems[i];
+
+                    if (item.type.startsWith('image/')) {
+                        imageFound = true;
+                        const file = item.getAsFile();
+
+                        if (file) {
+                            await handlePastedImage(file);
+                            break;
+                        }
+                    }
+                }
+
+                if (!imageFound) {
+                    // Check for text that might be an image URL
+                    const text = e.clipboardData.getData('text/plain');
+                    if (text && isValidImageUrl(text)) {
+                        // Auto-fill URL input and load
+                        document.getElementById('imageUrlInput').value = text;
+                        await loadImageFromUrl();
+                        pasteStatus.innerHTML = '<div class="paste-success">✅ Image URL pasted and loaded!</div>';
+                    } else {
+                        throw new Error('No image found in clipboard. Try copying an image or screenshot first.');
+                    }
+                }
+
+            } catch (error) {
+                console.error('Paste error:', error);
+                pasteStatus.innerHTML = `<div class="paste-error">❌ ${error.message}</div>`;
+                showStatus(error.message, 'error');
+            } finally {
+                // Remove visual feedback
+                setTimeout(() => {
+                    pasteArea.classList.remove('paste-active');
+                    if (!pasteStatus.innerHTML.includes('paste-success') && !pasteStatus.innerHTML.includes('paste-error')) {
+                        updatePasteStatus();
+                    }
+                }, 2000);
+            }
+        }
+
+        // Handle pasted image file
+        async function handlePastedImage(file) {
+            const pasteStatus = document.getElementById('pasteStatus');
+            const pastePreview = document.getElementById('pastePreview');
+            const pastePreviewImage = document.getElementById('pastePreviewImage');
+
+            try {
+                // Validate file size (max 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    throw new Error('Pasted image is too large (max 10MB)');
+                }
+
+                // Create a synthetic filename based on current time
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const syntheticFile = new File([file], `pasted-image-${timestamp}.${file.type.split('/')[1]}`, {
+                    type: file.type,
+                    lastModified: Date.now()
+                });
+
+                // Validate image dimensions for raster images
+                if (file.type.startsWith('image/') && file.type !== 'image/svg+xml') {
+                    await new Promise((resolve, reject) => {
+                        validateImageDimensions(syntheticFile, (isValid, width, height) => {
+                            if (!isValid) {
+                                reject(new Error(`Pasted image too small: ${width}×${height}px. Minimum recommended: 256×256px`));
+                                return;
+                            }
+                            resolve();
+                        });
+                    });
+                }
+
+                // Load the pasted image
+                sourceImageFile = syntheticFile;
+                await loadSourceImageFromFile(syntheticFile);
+
+                // Show paste preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    pastePreviewImage.src = e.target.result;
+                    pastePreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+
+                // Update status
+                pasteStatus.innerHTML = '<div class="paste-success">✅ Image pasted successfully!</div>';
+                showStatus(`Image pasted from clipboard (${file.type})`, 'success');
+
+            } catch (error) {
+                throw error; // Re-throw to be handled by parent function
+            }
+        }
+
+        // Update paste status based on focus
+        function updatePasteStatus() {
+            const pasteStatus = document.getElementById('pasteStatus');
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const shortcut = isMac ? 'Cmd+V' : 'Ctrl+V';
+
+            if (document.hasFocus()) {
+                pasteStatus.innerHTML = `Ready to paste! Press <kbd style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">${shortcut}</kbd>`;
+                document.getElementById('pasteArea').classList.add('paste-ready');
+            } else {
+                pasteStatus.innerHTML = `Click anywhere on this page, then press <kbd style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">${shortcut}</kbd>`;
+                document.getElementById('pasteArea').classList.remove('paste-ready');
+            }
+        }
+
+        // Load source image from file (helper function)
+        async function loadSourceImageFromFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    const img = document.getElementById('sourceImage');
+                    img.src = e.target.result;
+                    sourceImageData = e.target.result;
+
+                    document.getElementById('sourcePreview').style.display = 'block';
+                    resolve();
+                };
+
+                reader.onerror = function() {
+                    reject(new Error('Error loading pasted image file'));
+                };
+
+                reader.readAsDataURL(file);
+            });
+        }
 
         // Initialize drag and drop functionality
         function initializeDragAndDrop() {
@@ -336,6 +645,35 @@
         // Handle file input change
         document.getElementById('fileInput').addEventListener('change', function(e) {
             handleFiles(e.target.files);
+        });
+
+        // Handle URL input enter key
+        document.getElementById('imageUrlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                loadImageFromUrl();
+            }
+        });
+
+        // Handle URL input changes for real-time validation
+        document.getElementById('imageUrlInput').addEventListener('input', function(e) {
+            const url = e.target.value.trim();
+            const loadBtn = document.getElementById('loadUrlBtn');
+            const clearBtn = document.getElementById('clearUrlBtn');
+
+            if (url) {
+                clearBtn.style.display = 'inline-block';
+                if (isValidImageUrl(url)) {
+                    loadBtn.disabled = false;
+                    e.target.style.borderColor = 'rgba(108, 207, 127, 0.5)';
+                } else {
+                    loadBtn.disabled = true;
+                    e.target.style.borderColor = 'rgba(255, 71, 87, 0.5)';
+                }
+            } else {
+                clearBtn.style.display = 'none';
+                loadBtn.disabled = false;
+                e.target.style.borderColor = 'rgba(255,255,255,0.3)';
+            }
         });
 
         // Handle uploaded files
@@ -400,21 +738,140 @@
         // Load and display source image
         function loadSourceImage(file) {
             const reader = new FileReader();
-            
+
             reader.onload = function(e) {
                 const img = document.getElementById('sourceImage');
                 img.src = e.target.result;
                 sourceImageData = e.target.result;
-                
+
                 document.getElementById('sourcePreview').style.display = 'block';
                 showStatus(`Source image loaded: ${file.name}`, 'success');
             };
-            
+
             reader.onerror = function() {
                 showStatus('Error loading image file.', 'error');
             };
-            
+
             reader.readAsDataURL(file);
+        }
+
+        // Validate if URL looks like an image URL
+        function isValidImageUrl(url) {
+            try {
+                const urlObj = new URL(url);
+                const pathname = urlObj.pathname.toLowerCase();
+                const validExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'];
+                return validExtensions.some(ext => pathname.endsWith(ext)) ||
+                       url.includes('imgur.com') ||
+                       url.includes('unsplash.com') ||
+                       url.includes('pexels.com') ||
+                       url.includes('pixabay.com') ||
+                       url.includes('githubusercontent.com');
+            } catch {
+                return false;
+            }
+        }
+
+        // Load image from URL
+        async function loadImageFromUrl() {
+            const urlInput = document.getElementById('imageUrlInput');
+            const url = urlInput.value.trim();
+            const loadBtn = document.getElementById('loadUrlBtn');
+            const urlPreview = document.getElementById('urlPreview');
+            const urlPreviewImage = document.getElementById('urlPreviewImage');
+
+            if (!url) {
+                showStatus('Please enter an image URL.', 'error');
+                return;
+            }
+
+            // Basic URL validation
+            try {
+                new URL(url);
+            } catch {
+                showStatus('Please enter a valid URL.', 'error');
+                return;
+            }
+
+            // Show loading state
+            const originalText = loadBtn.innerHTML;
+            loadBtn.innerHTML = '<span class="loading-spinner"></span>Loading...';
+            loadBtn.disabled = true;
+
+            try {
+                // First, try to load the image to validate it
+                const img = new Image();
+                img.crossOrigin = 'anonymous'; // Enable CORS for external images
+
+                const imageLoadPromise = new Promise((resolve, reject) => {
+                    img.onload = () => {
+                        // Validate image dimensions
+                        if (img.width < 100 || img.height < 100) {
+                            reject(new Error(`Image too small: ${img.width}×${img.height}px. Minimum recommended: 256×256px`));
+                            return;
+                        }
+                        resolve(img);
+                    };
+                    img.onerror = () => reject(new Error('Failed to load image from URL. Please check the URL and try again.'));
+                });
+
+                // Set timeout for loading
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Image loading timed out. Please try a different URL.')), 10000);
+                });
+
+                img.src = url;
+
+                // Wait for image to load or timeout
+                const loadedImg = await Promise.race([imageLoadPromise, timeoutPromise]);
+
+                // Convert image to data URL
+                const canvas = document.getElementById('tempCanvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = loadedImg.width;
+                canvas.height = loadedImg.height;
+
+                ctx.drawImage(loadedImg, 0, 0);
+                const dataUrl = canvas.toDataURL('image/png');
+
+                // Set as source image
+                sourceImageData = dataUrl;
+                sourceImageFile = { name: `image-from-url-${Date.now()}.png`, size: dataUrl.length };
+
+                // Update UI
+                const sourceImg = document.getElementById('sourceImage');
+                sourceImg.src = dataUrl;
+                document.getElementById('sourcePreview').style.display = 'block';
+
+                // Show URL preview
+                urlPreviewImage.src = dataUrl;
+                urlPreview.style.display = 'block';
+
+                showStatus(`Image loaded successfully from URL (${loadedImg.width}×${loadedImg.height}px)`, 'success');
+
+            } catch (error) {
+                console.error('URL loading error:', error);
+                showStatus(error.message, 'error');
+                urlPreview.style.display = 'none';
+            } finally {
+                // Restore button state
+                loadBtn.innerHTML = originalText;
+                loadBtn.disabled = false;
+            }
+        }
+
+        // Clear URL input
+        function clearUrlInput() {
+            const urlInput = document.getElementById('imageUrlInput');
+            const urlPreview = document.getElementById('urlPreview');
+            const clearBtn = document.getElementById('clearUrlBtn');
+
+            urlInput.value = '';
+            urlInput.style.borderColor = 'rgba(255,255,255,0.3)';
+            urlPreview.style.display = 'none';
+            clearBtn.style.display = 'none';
+
+            showStatus('URL input cleared.', 'info');
         }
 
         // Clear upload and reset
@@ -422,13 +879,31 @@
             sourceImageFile = null;
             sourceImageData = null;
             generatedImages = [];
-            
+
             document.getElementById('sourcePreview').style.display = 'none';
             document.getElementById('generationSection').style.display = 'none';
             document.getElementById('resultsSection').style.display = 'none';
             document.getElementById('fileInput').value = '';
-            
-            showStatus('Upload cleared. Ready for new image.', 'info');
+
+            // Clear URL input as well
+            clearUrlInput();
+
+            // Clear paste preview
+            clearPastePreview();
+
+            showStatus('All inputs cleared. Ready for new image.', 'info');
+        }
+
+        // Clear paste preview
+        function clearPastePreview() {
+            const pastePreview = document.getElementById('pastePreview');
+            const pasteArea = document.getElementById('pasteArea');
+
+            pastePreview.style.display = 'none';
+            pasteArea.classList.remove('paste-active', 'paste-ready');
+
+            // Reset paste status
+            updatePasteStatus();
         }
 
         // Show status message
@@ -678,7 +1153,8 @@
         // Initialize when page loads
         window.addEventListener('load', function() {
             initializeDragAndDrop();
-            console.log('Automated Image Generator loaded');
+            initializeClipboardPaste();
+            console.log('Automated Image Generator loaded with paste support');
         });
     </script>
 </body>

@@ -336,6 +336,9 @@ class CordovaAppGeneratorApp {
                             <a href="${githubResult.repository.htmlUrl}" target="_blank" class="btn btn-sm btn-primary">
                                 <i class="fab fa-github"></i> View on GitHub
                             </a>
+                            <a href="https://linhfishcr7.github.io/${githubResult.repository.name}/www" target="_blank" class="btn btn-sm btn-primary">
+                                <i class="fab fa-github"></i> View GitHub Page
+                            </a>
                             ${isCodemagicReady && codemagicResult.application ? `
                                 <a href="https://codemagic.io/app/${codemagicResult.application.id}" target="_blank" class="btn btn-sm btn-warning">
                                     <i class="fas fa-rocket"></i> Codemagic
