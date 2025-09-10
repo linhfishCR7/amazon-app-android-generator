@@ -66,7 +66,7 @@ class CordovaAppGeneratorApp {
                 this.buildStatusManager.startPollingActiveBuilds();
             }, 2000);
 
-            console.log('Cordova App Generator initialized successfully');
+            // Application initialized successfully
         } catch (error) {
             console.error('Failed to initialize application:', error);
             this.ui?.showToast('Failed to initialize application', 'error');

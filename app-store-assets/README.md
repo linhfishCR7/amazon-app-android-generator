@@ -13,14 +13,12 @@ This directory contains professional app store assets ready for immediate use in
 - **`app-store-description.md`** - Marketing-optimized app store description
 
 ### 🛠️ **Conversion Tools**
-- **`automated-image-generator.html`** - 🚀 **NEW: AUTOMATED IMAGE GENERATOR** - Upload one image, get all 5 app store images automatically
+- **`automated-image-generator.html`** - 🚀 **AUTOMATED IMAGE GENERATOR** - Upload one image, get all 5 app store images automatically with URL input and clipboard paste support
 - **`enhanced-converter.html`** - ⭐ **FULL-FEATURED CONVERTER** with custom dimensions, multiple formats, preview, and batch export
-- **`convert-to-png.html`** - Basic web-based SVG to PNG converter with preview
 - **`convert-assets.js`** - Node.js command-line converter (requires canvas module)
-- **`test-converter.html`** - Test suite for debugging conversion issues
 
 ### 📚 **Documentation**
-- **`ENHANCED-FEATURES-GUIDE.md`** - Comprehensive guide for all new features
+- **`ENHANCED-FEATURES-GUIDE.md`** - Comprehensive guide for enhanced converter features
 
 ## 🚀 Quick Start
 

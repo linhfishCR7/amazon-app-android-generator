@@ -463,7 +463,7 @@ class UIManager {
 
         const build = window.buildStatusManager.getBuild(buildId);
         if (!build || !build.artifacts || build.artifacts.length === 0) {
-            alert('No artifacts available for this build.');
+            this.showToast('No artifacts available for this build.', 'warning');
             return;
         }
 
@@ -515,7 +515,7 @@ class UIManager {
     // Show build history modal
     showBuildHistory() {
         if (!window.buildStatusManager) {
-            alert('Build status manager not available.');
+            this.showToast('Build status manager not available.', 'error');
             return;
         }
 
@@ -523,7 +523,7 @@ class UIManager {
         const stats = window.buildStatusManager.getBuildStats();
 
         if (builds.length === 0) {
-            alert('No build history available.');
+            this.showToast('No build history available.', 'info');
             return;
         }
 
@@ -674,7 +674,7 @@ class UIManager {
         }
 
         this.updateSelectedAppsPreview();
-        alert('Build history cleared successfully.');
+        this.showToast('Build history cleared successfully.', 'success');
     }
 
     // Export build history
@@ -708,13 +708,13 @@ class UIManager {
                 try {
                     const success = window.buildStatusManager.importBuildHistory(e.target.result);
                     if (success) {
-                        alert('Build history imported successfully.');
+                        this.showToast('Build history imported successfully.', 'success');
                         this.updateSelectedAppsPreview();
                     } else {
-                        alert('Failed to import build history. Invalid file format.');
+                        this.showToast('Failed to import build history. Invalid file format.', 'error');
                     }
                 } catch (error) {
-                    alert('Failed to import build history: ' + error.message);
+                    this.showToast('Failed to import build history: ' + error.message, 'error');
                 }
             };
             reader.readAsText(file);
