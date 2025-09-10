@@ -467,17 +467,23 @@ window.appFunctions = {
     // Generate Codemagic CI/CD configuration
     generateCodemagicConfig(appConfig, config) {
         const customConfig = config.codemagicConfig;
-        
+
         if (customConfig && customConfig.trim()) {
             return customConfig;
         }
 
-        // Default Codemagic configuration matching RetroGames repository structure
+        // Enhanced Codemagic configuration with Amazon Appstore integration
         return `workflows:
   cordova_android_build:
     name: Build Cordova Android App
     max_build_duration: 60
-    environment: {}  # <-- bỏ trống hoặc xóa luôn cũng được
+    environment:
+      groups:
+        - amazon_appstore_credentials  # Add Amazon Appstore credentials group
+      vars:
+        AMAZON_CLIENT_ID: $AMAZON_CLIENT_ID
+        AMAZON_CLIENT_SECRET: $AMAZON_CLIENT_SECRET
+        AMAZON_DEVELOPER_ID: $AMAZON_DEVELOPER_ID
     scripts:
       - name: Install Node.js & Cordova
         script: |
@@ -491,9 +497,27 @@ window.appFunctions = {
         script: |
           cordova platform add android
           cordova build android --release
+      - name: Upload to Amazon Appstore (Optional)
+        script: |
+          if [ ! -z "$AMAZON_CLIENT_ID" ] && [ ! -z "$AMAZON_CLIENT_SECRET" ]; then
+            echo "🚀 Uploading to Amazon Appstore..."
+            # Install Amazon Appstore CLI tool (if available)
+            # npm install -g amazon-appstore-cli
+            # amazon-appstore upload --apk platforms/android/app/build/outputs/apk/release/app-release.apk
+            echo "✅ Amazon Appstore upload configured (implement upload logic)"
+          else
+            echo "⚠️ Amazon Appstore credentials not configured, skipping upload"
+          fi
     artifacts:
       - platforms/android/app/build/outputs/bundle/release/app-release.aab
-      - platforms/android/app/build/outputs/apk/release/app-release.apk`;
+      - platforms/android/app/build/outputs/apk/release/app-release.apk
+    publishing:
+      # Future: Add Amazon Appstore publishing configuration
+      amazon_appstore:
+        # This will be implemented when Amazon provides official Codemagic integration
+        credentials: $AMAZON_APPSTORE_CREDENTIALS
+        track: production  # or beta, alpha
+        submit_for_review: true`;
     }
 
     // Generate Cordova-specific .gitignore matching RetroGames repository structure

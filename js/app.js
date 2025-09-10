@@ -23,6 +23,7 @@ class CordovaAppGeneratorApp {
             this.generator = new CordovaAppGenerator();
             this.github = new GitHubIntegration();
             this.codemagic = new CodemagicIntegration();
+            this.amazonAppstore = new AmazonAppstoreIntegration();
             this.cordovaBuilder = new CordovaBuildPreparation();
             this.buildStatusManager = new BuildStatusManager();
 
@@ -36,6 +37,7 @@ class CordovaAppGeneratorApp {
             window.github = this.github;
             window.githubIntegration = this.github; // Add alias for consistency
             window.codemagic = this.codemagic;
+            window.amazonAppstore = this.amazonAppstore;
             window.cordovaBuilder = this.cordovaBuilder;
             window.buildStatusManager = this.buildStatusManager;
             window.app = this;

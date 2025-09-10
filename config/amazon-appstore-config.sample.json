@@ -1,0 +1,68 @@
+{
+  "amazon": {
+    "clientId": "your-amazon-client-id",
+    "clientSecret": "your-amazon-client-secret",
+    "developerId": "your-amazon-developer-id",
+    "apiBase": "https://developer.amazon.com/api/appstore/v1"
+  },
+  "app": {
+    "name": "MyApp",
+    "displayName": "My Awesome App",
+    "packageName": "com.example.myapp",
+    "description": "A comprehensive mobile application built with Apache Cordova, featuring modern UI design and cross-platform compatibility.",
+    "shortDescription": "Modern mobile app built with Cordova",
+    "category": "ENTERTAINMENT",
+    "keywords": [
+      "mobile",
+      "app",
+      "cordova",
+      "cross-platform",
+      "android"
+    ],
+    "authorName": "Your Name",
+    "authorEmail": "your.email@example.com",
+    "supportEmail": "support@example.com",
+    "privacyPolicyUrl": "https://example.com/privacy-policy",
+    "termsOfServiceUrl": "https://example.com/terms-of-service",
+    "websiteUrl": "https://example.com",
+    "contentRating": "Everyone",
+    "releaseNotes": "Initial release with core functionality",
+    "appId": null
+  },
+  "deployment": {
+    "autoSubmit": true,
+    "submitForReview": true,
+    "releaseTrack": "production",
+    "rolloutPercentage": 100,
+    "enableGradualRollout": false
+  },
+  "validation": {
+    "minSdkVersion": 21,
+    "targetSdkVersion": 33,
+    "maxApkSize": "100MB",
+    "requiredPermissions": [
+      "android.permission.INTERNET",
+      "android.permission.ACCESS_NETWORK_STATE"
+    ]
+  },
+  "notifications": {
+    "email": {
+      "enabled": true,
+      "recipients": [
+        "developer@example.com"
+      ]
+    },
+    "slack": {
+      "enabled": false,
+      "webhookUrl": "",
+      "channel": "#deployments"
+    }
+  },
+  "advanced": {
+    "retryAttempts": 3,
+    "retryDelay": 5000,
+    "uploadTimeout": 300000,
+    "enableLogging": true,
+    "logLevel": "info"
+  }
+}
