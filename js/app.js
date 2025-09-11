@@ -12,7 +12,44 @@ class CordovaAppGeneratorApp {
         this.ui = null;
         this.isGenerating = false;
         this.generationResults = null;
+        this.eventListeners = new Map(); // Add event system
         this.init();
+    }
+
+    // Event system implementation
+    on(event, callback) {
+        if (!this.eventListeners.has(event)) {
+            this.eventListeners.set(event, []);
+        }
+        this.eventListeners.get(event).push(callback);
+    }
+
+    emit(event, data) {
+        try {
+            if (this.eventListeners.has(event)) {
+                this.eventListeners.get(event).forEach(callback => {
+                    try {
+                        callback(data);
+                    } catch (callbackError) {
+                        console.error(`Error in event callback for '${event}':`, callbackError);
+                        // Don't let callback errors break the event system
+                    }
+                });
+            }
+        } catch (error) {
+            console.error(`Error emitting event '${event}':`, error);
+        }
+    }
+
+    // Remove event listener
+    off(event, callback) {
+        if (this.eventListeners.has(event)) {
+            const listeners = this.eventListeners.get(event);
+            const index = listeners.indexOf(callback);
+            if (index > -1) {
+                listeners.splice(index, 1);
+            }
+        }
     }
 
     async init() {
@@ -659,38 +696,127 @@ class CordovaAppGeneratorApp {
 
     // Build Status Manager event handlers
     onBuildStatusUpdated(buildData) {
-        this.addLogEntry(`🔄 Build ${buildData.buildId} status: ${buildData.status}`, 'info');
-        if (this.ui) {
-            this.ui.updateSelectedAppsPreview();
+        try {
+            // Validate buildData
+            if (!buildData || !buildData.buildId) {
+                console.warn('Invalid build data received in onBuildStatusUpdated:', buildData);
+                return;
+            }
+
+            const buildId = buildData.buildId || 'unknown';
+            const status = buildData.status || 'unknown';
+
+            this.addLogEntry(`🔄 Build ${buildId} status: ${status}`, 'info');
+
+            // Update UI if available
+            if (this.ui && typeof this.ui.updateSelectedAppsPreview === 'function') {
+                try {
+                    this.ui.updateSelectedAppsPreview();
+                } catch (uiError) {
+                    console.error('Error updating UI in onBuildStatusUpdated:', uiError);
+                }
+            }
+
+            // Emit event with error handling
+            this.emit('build:status:changed', buildData);
+
+        } catch (error) {
+            console.error('Error in onBuildStatusUpdated:', error);
+            // Try to log the error if possible
+            if (this.addLogEntry) {
+                this.addLogEntry(`❌ Error processing build status update: ${error.message}`, 'error');
+            }
         }
-        this.emit('build:status:changed', buildData);
     }
 
     onBuildCompleted(buildData) {
-        const statusIcon = buildData.status === this.buildStatusManager.STATUS.SUCCESS ? '✅' : '❌';
-        this.addLogEntry(`${statusIcon} Build ${buildData.buildId} completed: ${buildData.status}`,
-                         buildData.status === this.buildStatusManager.STATUS.SUCCESS ? 'success' : 'error');
-        if (this.ui) {
-            this.ui.updateSelectedAppsPreview();
-        }
+        try {
+            // Validate buildData
+            if (!buildData || !buildData.buildId) {
+                console.warn('Invalid build data received in onBuildCompleted:', buildData);
+                return;
+            }
 
-        // Update template usage statistics based on build result
-        if (buildData.templateId) {
-            const status = buildData.status === this.buildStatusManager.STATUS.SUCCESS ? 'success' : 'failed';
-            this.templateManager.recordTemplateUsage(buildData.templateId, buildData.buildId, status);
-        }
+            const buildId = buildData.buildId || 'unknown';
+            const status = buildData.status || 'unknown';
+            const isSuccess = this.buildStatusManager &&
+                             this.buildStatusManager.STATUS &&
+                             status === this.buildStatusManager.STATUS.SUCCESS;
+
+            const statusIcon = isSuccess ? '✅' : '❌';
+            const logLevel = isSuccess ? 'success' : 'error';
+
+            this.addLogEntry(`${statusIcon} Build ${buildId} completed: ${status}`, logLevel);
+
+            // Update UI if available
+            if (this.ui && typeof this.ui.updateSelectedAppsPreview === 'function') {
+                try {
+                    this.ui.updateSelectedAppsPreview();
+                } catch (uiError) {
+                    console.error('Error updating UI in onBuildCompleted:', uiError);
+                }
 
         this.emit('build:completed', buildData);
+            }
+
+            // Update template usage statistics based on build result
+            if (buildData.templateId && this.templateManager &&
+                typeof this.templateManager.recordTemplateUsage === 'function') {
+                try {
+                    const usageStatus = isSuccess ? 'success' : 'failed';
+                    this.templateManager.recordTemplateUsage(buildData.templateId, buildId, usageStatus);
+                } catch (templateError) {
+                    console.error('Error recording template usage:', templateError);
+                }
+            }
+
+            // Emit completion event
+            this.emit('build:completed', buildData);
+
+        } catch (error) {
+            console.error('Error in onBuildCompleted:', error);
+            if (this.addLogEntry) {
+                this.addLogEntry(`❌ Error processing build completion: ${error.message}`, 'error');
+            }
+        }
     }
 
     onBuildPollingStarted(data) {
-        this.addLogEntry(`🔄 Started monitoring build ${data.buildId}`, 'info');
-        this.updateBuildStatusIndicator();
+        try {
+            const buildId = data?.buildId || 'unknown';
+            this.addLogEntry(`🔄 Started monitoring build ${buildId}`, 'info');
+
+            if (typeof this.updateBuildStatusIndicator === 'function') {
+                this.updateBuildStatusIndicator();
+            }
+
+            this.emit('build:polling:started', data);
+
+        } catch (error) {
+            console.error('Error in onBuildPollingStarted:', error);
+            if (this.addLogEntry) {
+                this.addLogEntry(`❌ Error starting build monitoring: ${error.message}`, 'error');
+            }
+        }
     }
 
     onBuildPollingStopped(data) {
-        this.addLogEntry(`⏹️ Stopped monitoring build ${data.buildId}`, 'info');
-        this.updateBuildStatusIndicator();
+        try {
+            const buildId = data?.buildId || 'unknown';
+            this.addLogEntry(`⏹️ Stopped monitoring build ${buildId}`, 'info');
+
+            if (typeof this.updateBuildStatusIndicator === 'function') {
+                this.updateBuildStatusIndicator();
+            }
+
+            this.emit('build:polling:stopped', data);
+
+        } catch (error) {
+            console.error('Error in onBuildPollingStopped:', error);
+            if (this.addLogEntry) {
+                this.addLogEntry(`❌ Error stopping build monitoring: ${error.message}`, 'error');
+            }
+        }
     }
 
     // Update build status indicator

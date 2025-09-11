@@ -34,15 +34,53 @@ class BuildStatusManager {
 
     // Event system
     on(event, callback) {
-        if (!this.eventListeners.has(event)) {
-            this.eventListeners.set(event, []);
+        try {
+            // Validate inputs
+            if (typeof event !== 'string' || !event.trim()) {
+                console.error('Invalid event name provided to BuildStatusManager.on():', event);
+                return;
+            }
+
+            if (typeof callback !== 'function') {
+                console.error('Invalid callback provided to BuildStatusManager.on():', callback);
+                return;
+            }
+
+            if (!this.eventListeners.has(event)) {
+                this.eventListeners.set(event, []);
+            }
+
+            this.eventListeners.get(event).push(callback);
+            console.log(`✅ Registered callback for event '${event}' in BuildStatusManager`);
+
+        } catch (error) {
+            console.error(`Error registering event listener for '${event}':`, error);
         }
-        this.eventListeners.get(event).push(callback);
     }
 
     emit(event, data) {
-        if (this.eventListeners.has(event)) {
-            this.eventListeners.get(event).forEach(callback => callback(data));
+        try {
+            if (this.eventListeners.has(event)) {
+                const listeners = this.eventListeners.get(event);
+                listeners.forEach((callback, index) => {
+                    try {
+                        // Ensure callback is a function
+                        if (typeof callback === 'function') {
+                            callback(data);
+                        } else {
+                            console.warn(`Invalid callback at index ${index} for event '${event}':`, callback);
+                        }
+                    } catch (callbackError) {
+                        console.error(`Error in callback ${index} for event '${event}':`, callbackError);
+                        console.error('Callback data:', data);
+                        console.error('Callback function:', callback);
+                        // Don't let one callback error break others
+                    }
+                });
+            }
+        } catch (error) {
+            console.error(`Error emitting event '${event}':`, error);
+            console.error('Event data:', data);
         }
     }
 
