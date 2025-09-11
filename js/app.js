@@ -545,26 +545,45 @@ class CordovaAppGeneratorApp {
             const codemagicResults = [];
 
             for (const githubResult of githubResults) {
+                // Determine app name with proper fallback hierarchy
+                let appName = 'Cordova App'; // Default fallback
+                if (githubResult.app?.displayName) {
+                    appName = githubResult.app.displayName;
+                } else if (githubResult.app?.appName) {
+                    appName = githubResult.app.appName;
+                } else if (githubResult.repository?.originalAppName) {
+                    appName = githubResult.repository.originalAppName;
+                } else if (githubResult.repository?.name) {
+                    // Convert repository name back to readable format
+                    appName = githubResult.repository.name
+                        .replace(/-/g, ' ')
+                        .replace(/\b\w/g, l => l.toUpperCase());
+                }
+
                 if (!githubResult.success) {
                     codemagicResults.push({
                         success: false,
                         error: 'GitHub repository creation failed',
-                        appName: githubResult.app?.appName || 'Unknown'
+                        appName: appName
                     });
                     continue;
                 }
 
                 try {
-                    this.addLogEntry(`🔗 Creating Codemagic application for ${githubResult.app?.appName}...`, 'info');
+                    this.addLogEntry(`🔗 Creating Codemagic application for ${appName}...`, 'info');
 
                     // Create Codemagic application
                     const application = await this.codemagic.createApplication(
                         githubResult.repository.cloneUrl,
-                        { appName: githubResult.app?.appName }
+                        {
+                            appName: appName,
+                            repositoryName: githubResult.repository.name,
+                            originalAppName: githubResult.repository.originalAppName
+                        }
                     );
 
                     // Trigger initial build
-                    this.addLogEntry(`🚀 Triggering initial build for ${githubResult.app?.appName}...`, 'info');
+                    this.addLogEntry(`🚀 Triggering initial build for ${appName}...`, 'info');
                     const build = await this.codemagic.triggerBuild(
                         application.id,
                         formData.codemagicWorkflowId || 'cordova_android_build',
@@ -573,13 +592,14 @@ class CordovaAppGeneratorApp {
 
                     codemagicResults.push({
                         success: true,
-                        appName: githubResult.app?.appName,
+                        appName: appName,
                         application,
                         build,
+                        repository: githubResult.repository,
                         timestamp: new Date().toISOString()
                     });
 
-                    this.addLogEntry(`✅ Codemagic integration complete for ${githubResult.app?.appName}`, 'success');
+                    this.addLogEntry(`✅ Codemagic integration complete for ${appName}`, 'success');
 
                 } catch (error) {
                     let errorMessage = error.message;
@@ -597,13 +617,14 @@ class CordovaAppGeneratorApp {
                         errorType = 'auth_error';
                     }
 
-                    this.addLogEntry(`❌ Codemagic integration failed for ${githubResult.app?.appName}: ${errorMessage}`, 'error');
+                    this.addLogEntry(`❌ Codemagic integration failed for ${appName}: ${errorMessage}`, 'error');
 
                     codemagicResults.push({
                         success: false,
                         error: errorMessage,
                         errorType: errorType,
-                        appName: githubResult.app?.appName,
+                        appName: appName,
+                        repository: githubResult.repository,
                         originalError: error.message
                     });
                 }
@@ -668,9 +689,28 @@ class CordovaAppGeneratorApp {
         this.addLogEntry(`✓ Build triggered for workflow ${data.build.workflowId} (Build ID: ${data.build.buildId})`, 'success');
 
         // Save build to status manager and start polling
+        // Determine app name with proper fallback hierarchy
+        let appName = 'Cordova App'; // Default fallback
+        if (data.appName && data.appName.trim()) {
+            appName = data.appName.trim();
+        } else if (data.app && data.app.displayName) {
+            appName = data.app.displayName;
+        } else if (data.app && data.app.appName) {
+            appName = data.app.appName;
+        } else if (data.repository && data.repository.originalAppName) {
+            appName = data.repository.originalAppName;
+        } else if (data.repository && data.repository.name) {
+            // Convert repository name back to readable format
+            appName = data.repository.name
+                .replace(/-/g, ' ')
+                .replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        console.log(`📝 Build app name: "${data.appName}" → "${appName}"`);
+
         const buildInfo = {
             buildId: data.build.buildId,
-            appName: data.appName || 'Unknown App',
+            appName: appName,
             applicationId: data.build.applicationId,
             status: this.buildStatusManager.STATUS.QUEUED,
             workflowId: data.build.workflowId,

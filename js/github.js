@@ -128,6 +128,40 @@ class GitHubIntegration {
         }
     }
 
+    // Sanitize repository name for GitHub compatibility
+    sanitizeRepositoryName(name) {
+        if (!name || typeof name !== 'string') {
+            return 'cordova-app';
+        }
+
+        // Convert to GitHub-compatible repository name
+        let sanitized = name
+            .trim()
+            .toLowerCase()
+            // Replace spaces and special characters with hyphens
+            .replace(/[^a-z0-9\-_.]/g, '-')
+            // Remove multiple consecutive hyphens
+            .replace(/-+/g, '-')
+            // Remove leading/trailing hyphens
+            .replace(/^-+|-+$/g, '')
+            // Ensure it doesn't start with a dot
+            .replace(/^\.+/, '')
+            // Limit length to GitHub's requirements
+            .substring(0, 100);
+
+        // Ensure it's not empty after sanitization
+        if (!sanitized || sanitized.length === 0) {
+            sanitized = 'cordova-app';
+        }
+
+        // Ensure it doesn't end with .git
+        if (sanitized.endsWith('.git')) {
+            sanitized = sanitized.slice(0, -4);
+        }
+
+        return sanitized;
+    }
+
     // Create GitHub repository
     async createRepository(appConfig) {
         if (!this.isAuthenticated) {
@@ -135,10 +169,34 @@ class GitHubIntegration {
         }
 
         try {
-            this.emit('repo:create:start', { appName: appConfig.appName });
+            // Validate and sanitize app configuration
+            if (!appConfig) {
+                throw new Error('App configuration is required');
+            }
+
+            // Determine the repository name with proper fallback hierarchy
+            let repositoryName;
+            if (appConfig.appName && appConfig.appName.trim()) {
+                repositoryName = this.sanitizeRepositoryName(appConfig.appName);
+            } else if (appConfig.displayName && appConfig.displayName.trim()) {
+                repositoryName = this.sanitizeRepositoryName(appConfig.displayName);
+            } else if (appConfig.template && appConfig.template.name) {
+                repositoryName = this.sanitizeRepositoryName(appConfig.template.name);
+            } else if (appConfig.template && appConfig.template.displayName) {
+                repositoryName = this.sanitizeRepositoryName(appConfig.template.displayName);
+            } else {
+                repositoryName = 'cordova-app';
+            }
+
+            console.log(`📝 Repository name: "${appConfig.appName}" → "${repositoryName}"`);
+
+            this.emit('repo:create:start', {
+                appName: appConfig.appName || appConfig.displayName || 'Cordova App',
+                repositoryName: repositoryName
+            });
 
             // Check if repository already exists
-            const existsResponse = await fetch(`${this.apiBase}/repos/${this.username}/${appConfig.appName}`, {
+            const existsResponse = await fetch(`${this.apiBase}/repos/${this.username}/${repositoryName}`, {
                 headers: {
                     'Authorization': `token ${this.token}`,
                     'Accept': 'application/vnd.github.v3+json',
@@ -159,12 +217,19 @@ class GitHubIntegration {
                     sshUrl: existingRepo.ssh_url,
                     created: false, // Not created, already existed
                     timestamp: new Date().toISOString(),
-                    existing: true
+                    existing: true,
+                    originalAppName: appConfig.appName || appConfig.displayName,
+                    sanitizedName: repositoryName
                 };
 
+                console.log(`✅ Repository "${repositoryName}" already exists`);
                 this.emit('repo:create:success', { repository, appConfig });
                 return repository;
             }
+
+            // Prepare repository description
+            const repoDescription = appConfig.description ||
+                                  `${appConfig.displayName || appConfig.appName || 'Cordova App'} - Built with Apache Cordova`;
 
             // Create new repository
             const createResponse = await fetch(`${this.apiBase}/user/repos`, {
@@ -176,8 +241,8 @@ class GitHubIntegration {
                     'User-Agent': 'Cordova-App-Generator/1.0.0'
                 },
                 body: JSON.stringify({
-                    name: appConfig.appName,
-                    description: appConfig.description,
+                    name: repositoryName,
+                    description: repoDescription,
                     private: false,
                     auto_init: false, // We'll push our own initial commit
                     gitignore_template: null,
@@ -196,10 +261,10 @@ class GitHubIntegration {
                 if (createResponse.status === 422 && errorData.errors) {
                     const nameError = errorData.errors.find(e => e.field === 'name');
                     if (nameError) {
-                        throw new Error(`Repository name "${appConfig.appName}" ${nameError.message}`);
+                        throw new Error(`Repository name "${repositoryName}" ${nameError.message}. Original name: "${appConfig.appName}"`);
                     }
                 }
-                throw new Error(`Failed to create repository: ${createResponse.status} ${errorData.message || createResponse.statusText}`);
+                throw new Error(`Failed to create repository "${repositoryName}": ${createResponse.status} ${errorData.message || createResponse.statusText}`);
             }
 
             const repoData = await createResponse.json();
@@ -213,9 +278,12 @@ class GitHubIntegration {
                 sshUrl: repoData.ssh_url,
                 created: true,
                 timestamp: new Date().toISOString(),
-                existing: false
+                existing: false,
+                originalAppName: appConfig.appName || appConfig.displayName,
+                sanitizedName: repositoryName
             };
 
+            console.log(`✅ Repository "${repositoryName}" created successfully`);
             this.emit('repo:create:success', { repository, appConfig });
 
             // Auto-enable GitHub Pages for immediate demo access
