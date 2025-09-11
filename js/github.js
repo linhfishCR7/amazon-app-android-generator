@@ -602,45 +602,113 @@ class GitHubIntegration {
 
             this.emit('step:start', { stepName: `Uploading ${filesCount} files to repository`, duration: 0 });
 
-            // Upload each file using GitHub Contents API
-            for (const [filePath, content] of Object.entries(files)) {
-                try {
-                    await this.uploadFile(repository, filePath, content, generatedApp.config);
-                    uploadedFiles++;
+            // Sort files to upload critical files first
+            const sortedFiles = Object.entries(files).sort(([pathA], [pathB]) => {
+                const criticalFiles = ['config.xml', 'package.json', 'www/index.html'];
+                const priorityA = criticalFiles.indexOf(pathA);
+                const priorityB = criticalFiles.indexOf(pathB);
 
-                    // Emit progress
-                    const progress = Math.round((uploadedFiles / filesCount) * 100);
-                    this.emit('step:progress', {
-                        stepName: `Uploaded ${uploadedFiles}/${filesCount} files (${progress}%)`,
-                        progress
-                    });
+                if (priorityA !== -1 && priorityB !== -1) return priorityA - priorityB;
+                if (priorityA !== -1) return -1;
+                if (priorityB !== -1) return 1;
+                return pathA.localeCompare(pathB);
+            });
 
-                } catch (error) {
-                    // Log upload failure but continue with other files
-                    if (window.showStatus) {
-                        window.showStatus(`Failed to upload ${filePath}: ${error.message}`, 'warning');
+            let failedFiles = [];
+
+            // Upload each file with retry logic
+            for (const [filePath, content] of sortedFiles) {
+                let uploadSuccess = false;
+                let lastError = null;
+                const maxRetries = 3;
+
+                for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    try {
+                        // Add delay between retries to avoid rate limiting
+                        if (attempt > 1) {
+                            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff, max 5s
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            console.log(`🔄 Retrying upload for ${filePath} (attempt ${attempt}/${maxRetries})`);
+                        }
+
+                        await this.uploadFile(repository, filePath, content, generatedApp.config);
+                        uploadedFiles++;
+                        uploadSuccess = true;
+
+                        // Emit progress
+                        const progress = Math.round((uploadedFiles / filesCount) * 100);
+                        this.emit('step:progress', {
+                            stepName: `Uploaded ${uploadedFiles}/${filesCount} files (${progress}%)`,
+                            progress
+                        });
+
+                        break; // Success, exit retry loop
+
+                    } catch (error) {
+                        lastError = error;
+                        console.warn(`❌ Upload attempt ${attempt} failed for ${filePath}:`, error.message);
+
+                        // Don't retry on certain errors
+                        if (error.message.includes('Permission denied') ||
+                            error.message.includes('Invalid repository') ||
+                            error.message.includes('Invalid author email')) {
+                            break;
+                        }
                     }
-                    // Continue with other files
+                }
+
+                if (!uploadSuccess) {
+                    failedFiles.push({ filePath, error: lastError?.message || 'Unknown error' });
+                    console.error(`❌ Failed to upload ${filePath} after ${maxRetries} attempts:`, lastError?.message);
+
+                    // Show warning but continue with other files
+                    if (window.showStatus) {
+                        window.showStatus(`Failed to upload ${filePath}: ${lastError?.message}`, 'warning');
+                    }
+                }
+
+                // Add small delay between uploads to avoid rate limiting
+                if (uploadedFiles % 10 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
 
-            // Create a commit summary
+            // Complete the upload process
+            this.emit('step:complete', { stepName: 'File upload complete' });
+
+            // Log results
+            if (failedFiles.length > 0) {
+                console.warn(`⚠️ Upload completed with ${failedFiles.length} failed files:`, failedFiles);
+            }
+
+            // Create a commit summary with detailed results
             const isBuildReady = generatedApp.buildReady && generatedApp.buildReady.success;
             const packageName = isBuildReady ? generatedApp.buildReady.packageName : generatedApp.config.packageName;
+            const successRate = Math.round((uploadedFiles / filesCount) * 100);
 
-            const commitMessage = `Initial commit: ${generatedApp.config.displayName}
+            let commitMessage = `Initial commit: ${generatedApp.config.displayName}
 
 ${generatedApp.config.description}
 
 Generated by Cordova App Generator
-- ${filesCount} files created
+- Files: ${uploadedFiles}/${filesCount} uploaded successfully (${successRate}%)
 - Package: ${packageName}
 - Plugins: ${generatedApp.config.plugins.length} configured
 - Category: ${generatedApp.config.category}
 ${isBuildReady ? '- Cordova build structure: ✅ Ready' : '- Cordova build structure: ❌ Not prepared'}
-${isBuildReady ? '- Codemagic CI/CD: ✅ Configured' : ''}
+${isBuildReady ? '- Codemagic CI/CD: ✅ Configured' : ''}`;
 
-${isBuildReady ? 'Ready for immediate Cordova builds!' : 'Ready for Cordova build process.'}`;
+            if (failedFiles.length > 0) {
+                commitMessage += `\n\nNote: ${failedFiles.length} files failed to upload and may need manual addition:`;
+                failedFiles.slice(0, 5).forEach(({ filePath }) => {
+                    commitMessage += `\n- ${filePath}`;
+                });
+                if (failedFiles.length > 5) {
+                    commitMessage += `\n- ... and ${failedFiles.length - 5} more`;
+                }
+            }
+
+            commitMessage += `\n\n${isBuildReady ? 'Ready for immediate Cordova builds!' : 'Ready for Cordova build process.'}`;
 
             const pushResult = {
                 repository,
@@ -652,10 +720,28 @@ ${isBuildReady ? 'Ready for immediate Cordova builds!' : 'Ready for Cordova buil
                 },
                 filesCount: uploadedFiles,
                 totalFiles: filesCount,
-                success: uploadedFiles > 0
+                failedFiles: failedFiles,
+                successRate: successRate,
+                success: uploadedFiles > 0,
+                hasFailures: failedFiles.length > 0
             };
 
-            this.emit('repo:push:success', { pushResult, repository });
+            // Emit appropriate event based on results
+            if (uploadedFiles === 0) {
+                this.emit('repo:push:error', {
+                    error: new Error('No files were uploaded successfully'),
+                    repository,
+                    failedFiles
+                });
+                throw new Error(`Failed to upload any files to repository. ${failedFiles.length} files failed.`);
+            } else if (failedFiles.length > 0) {
+                this.emit('repo:push:partial', { pushResult, repository, failedFiles });
+                console.warn(`⚠️ Partial upload success: ${uploadedFiles}/${filesCount} files uploaded`);
+            } else {
+                this.emit('repo:push:success', { pushResult, repository });
+                console.log(`✅ All files uploaded successfully: ${uploadedFiles}/${filesCount}`);
+            }
+
             return pushResult;
 
         } catch (error) {
@@ -667,10 +753,93 @@ ${isBuildReady ? 'Ready for immediate Cordova builds!' : 'Ready for Cordova buil
     // Upload a single file to GitHub repository using Contents API
     async uploadFile(repository, filePath, content, appConfig) {
         try {
-            // Encode content to base64 (modern way without deprecated unescape)
-            const encodedContent = btoa(new TextEncoder().encode(content).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+            // Validate inputs
+            if (!repository || !repository.fullName) {
+                throw new Error('Invalid repository object');
+            }
+            if (!filePath || typeof filePath !== 'string') {
+                throw new Error('Invalid file path');
+            }
+            if (content === null || content === undefined) {
+                throw new Error('Content cannot be null or undefined');
+            }
+            if (!appConfig || !appConfig.authorName || !appConfig.authorEmail) {
+                throw new Error('Invalid app configuration - missing author info');
+            }
 
-            const response = await fetch(`${this.apiBase}/repos/${repository.fullName}/contents/${filePath}`, {
+            // Sanitize file path
+            const sanitizedPath = filePath.replace(/^\/+/, '').replace(/\/+/g, '/');
+
+            // Convert content to string if it's not already
+            const stringContent = typeof content === 'string' ? content : String(content);
+
+            // Encode content to base64 with proper error handling
+            let encodedContent;
+            try {
+                // Use a more robust base64 encoding method
+                if (typeof btoa !== 'undefined') {
+                    // For ASCII content, use btoa directly
+                    if (/^[\x00-\x7F]*$/.test(stringContent)) {
+                        encodedContent = btoa(stringContent);
+                    } else {
+                        // For UTF-8 content, encode properly without deprecated unescape
+                        const utf8Bytes = new TextEncoder().encode(stringContent);
+                        const binaryString = Array.from(utf8Bytes, byte => String.fromCharCode(byte)).join('');
+                        encodedContent = btoa(binaryString);
+                    }
+                } else {
+                    // Fallback for environments without btoa
+                    encodedContent = Buffer.from(stringContent, 'utf8').toString('base64');
+                }
+            } catch (encodingError) {
+                throw new Error(`Failed to encode content for ${filePath}: ${encodingError.message}`);
+            }
+
+            // Validate author email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(appConfig.authorEmail)) {
+                throw new Error(`Invalid author email format: ${appConfig.authorEmail}`);
+            }
+
+            // Check if file already exists to avoid conflicts
+            let existingFile = null;
+            try {
+                const checkResponse = await fetch(`${this.apiBase}/repos/${repository.fullName}/contents/${sanitizedPath}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `token ${this.token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'User-Agent': 'Cordova-App-Generator/1.0.0'
+                    }
+                });
+                if (checkResponse.ok) {
+                    existingFile = await checkResponse.json();
+                }
+            } catch (checkError) {
+                // File doesn't exist, which is fine for new uploads
+                console.log(`File ${sanitizedPath} doesn't exist yet, creating new file`);
+            }
+
+            // Prepare request body
+            const requestBody = {
+                message: existingFile ? `Update ${sanitizedPath}` : `Add ${sanitizedPath}`,
+                content: encodedContent,
+                committer: {
+                    name: appConfig.authorName.trim(),
+                    email: appConfig.authorEmail.trim()
+                },
+                author: {
+                    name: appConfig.authorName.trim(),
+                    email: appConfig.authorEmail.trim()
+                }
+            };
+
+            // Add SHA if file exists (required for updates)
+            if (existingFile && existingFile.sha) {
+                requestBody.sha = existingFile.sha;
+            }
+
+            const response = await fetch(`${this.apiBase}/repos/${repository.fullName}/contents/${sanitizedPath}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `token ${this.token}`,
@@ -678,28 +847,60 @@ ${isBuildReady ? 'Ready for immediate Cordova builds!' : 'Ready for Cordova buil
                     'Content-Type': 'application/json',
                     'User-Agent': 'Cordova-App-Generator/1.0.0'
                 },
-                body: JSON.stringify({
-                    message: `Add ${filePath}`,
-                    content: encodedContent,
-                    committer: {
-                        name: appConfig.authorName,
-                        email: appConfig.authorEmail
-                    },
-                    author: {
-                        name: appConfig.authorName,
-                        email: appConfig.authorEmail
-                    }
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`Failed to upload ${filePath}: ${response.status} ${errorData.message || response.statusText}`);
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                let errorDetails = {};
+
+                try {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        errorDetails = await response.json();
+                        errorMessage = errorDetails.message || errorMessage;
+
+                        // Handle specific GitHub API errors
+                        if (response.status === 422) {
+                            if (errorDetails.message && errorDetails.message.includes('Invalid request')) {
+                                errorMessage = `Invalid file content or path for ${sanitizedPath}. Check file encoding and path format.`;
+                            } else if (errorDetails.message && errorDetails.message.includes('sha')) {
+                                errorMessage = `File conflict for ${sanitizedPath}. The file may have been modified by another process.`;
+                            }
+                        } else if (response.status === 409) {
+                            errorMessage = `File conflict for ${sanitizedPath}. Repository may be in an inconsistent state.`;
+                        } else if (response.status === 403) {
+                            errorMessage = `Permission denied for ${sanitizedPath}. Check repository permissions and token scopes.`;
+                        }
+                    }
+                } catch (parseError) {
+                    console.warn('Failed to parse error response:', parseError);
+                }
+
+                console.error('GitHub API Error Details:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    filePath: sanitizedPath,
+                    repository: repository.fullName,
+                    errorDetails,
+                    contentLength: stringContent.length,
+                    encodedLength: encodedContent.length
+                });
+
+                throw new Error(`Failed to upload ${sanitizedPath}: ${errorMessage}`);
             }
 
-            return await response.json();
+            const result = await response.json();
+            console.log(`✅ Successfully uploaded ${sanitizedPath} to ${repository.fullName}`);
+            return result;
 
         } catch (error) {
+            console.error(`❌ Upload failed for ${filePath}:`, {
+                error: error.message,
+                repository: repository?.fullName,
+                contentType: typeof content,
+                contentLength: content?.length || 0
+            });
             throw new Error(`Failed to upload ${filePath}: ${error.message}`);
         }
     }

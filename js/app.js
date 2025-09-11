@@ -466,13 +466,44 @@ class CordovaAppGeneratorApp {
         this.addLogEntry(`✗ Failed to push code: ${data.error.message}`, 'error');
     }
 
-    // Codemagic integration workflow
+    // Codemagic integration workflow with improved error handling
     async integrateWithCodemagic(githubResults, formData) {
         try {
             this.addLogEntry('🚀 Starting Codemagic.io integration...', 'info');
 
-            // Authenticate with Codemagic
-            await this.authenticateCodemagic(formData.codemagicApiToken, formData.codemagicTeamId);
+            // Authenticate with Codemagic with CORS error handling
+            let authSuccess = false;
+            try {
+                await this.authenticateCodemagic(formData.codemagicApiToken, formData.codemagicTeamId);
+                authSuccess = true;
+            } catch (authError) {
+                if (authError.isCorsError || authError.message.includes('CORS')) {
+                    this.addLogEntry('⚠️ Codemagic API not accessible from localhost due to CORS restrictions', 'warning');
+                    this.addLogEntry('📋 Your GitHub repositories have been created successfully!', 'success');
+                    this.addLogEntry('🚀 To enable Codemagic integration, choose one of these options:', 'info');
+                    this.addLogEntry('   • Deploy this app to a web server (GitHub Pages, Netlify, Vercel)', 'info');
+                    this.addLogEntry('   • Use Codemagic dashboard directly to connect your repositories', 'info');
+                    this.addLogEntry('   • Set up a local proxy server to bypass CORS', 'info');
+                    this.addLogEntry('💡 Your apps are ready for manual Codemagic setup!', 'info');
+
+                    // Return partial results indicating CORS limitation
+                    return githubResults.map(result => ({
+                        success: false,
+                        error: 'CORS_LIMITATION',
+                        message: 'Codemagic integration not available from localhost',
+                        appName: result.appName || 'Unknown',
+                        corsLimited: true,
+                        githubSuccess: result.success,
+                        repository: result.repository,
+                        alternativeInstructions: [
+                            'Your GitHub repository is ready for Codemagic integration',
+                            'Visit https://codemagic.io/apps to manually add your repository',
+                            'Use the repository URL: ' + (result.repository?.cloneUrl || 'N/A')
+                        ]
+                    }));
+                }
+                throw authError;
+            }
 
             const codemagicResults = [];
 
@@ -481,19 +512,22 @@ class CordovaAppGeneratorApp {
                     codemagicResults.push({
                         success: false,
                         error: 'GitHub repository creation failed',
-                        appName: githubResult.appName
+                        appName: githubResult.app?.appName || 'Unknown'
                     });
                     continue;
                 }
 
                 try {
+                    this.addLogEntry(`🔗 Creating Codemagic application for ${githubResult.app?.appName}...`, 'info');
+
                     // Create Codemagic application
                     const application = await this.codemagic.createApplication(
                         githubResult.repository.cloneUrl,
-                        { appName: githubResult.appName }
+                        { appName: githubResult.app?.appName }
                     );
 
                     // Trigger initial build
+                    this.addLogEntry(`🚀 Triggering initial build for ${githubResult.app?.appName}...`, 'info');
                     const build = await this.codemagic.triggerBuild(
                         application.id,
                         formData.codemagicWorkflowId || 'cordova_android_build',
@@ -502,27 +536,64 @@ class CordovaAppGeneratorApp {
 
                     codemagicResults.push({
                         success: true,
-                        appName: githubResult.appName,
+                        appName: githubResult.app?.appName,
                         application,
                         build,
                         timestamp: new Date().toISOString()
                     });
 
+                    this.addLogEntry(`✅ Codemagic integration complete for ${githubResult.app?.appName}`, 'success');
+
                 } catch (error) {
+                    let errorMessage = error.message;
+                    let errorType = 'integration_error';
+
+                    // Handle specific error types
+                    if (error.message.includes('CORS') || error.message.includes('Failed to fetch')) {
+                        errorMessage = 'API not accessible from localhost (CORS restriction)';
+                        errorType = 'cors_error';
+                    } else if (error.message.includes('422')) {
+                        errorMessage = 'Repository validation failed - check repository URL and permissions';
+                        errorType = 'validation_error';
+                    } else if (error.message.includes('401')) {
+                        errorMessage = 'Authentication failed - check API token';
+                        errorType = 'auth_error';
+                    }
+
+                    this.addLogEntry(`❌ Codemagic integration failed for ${githubResult.app?.appName}: ${errorMessage}`, 'error');
+
                     codemagicResults.push({
                         success: false,
-                        error: error.message,
-                        appName: githubResult.appName,
-                        timestamp: new Date().toISOString()
+                        error: errorMessage,
+                        errorType: errorType,
+                        appName: githubResult.app?.appName,
+                        originalError: error.message
                     });
                 }
             }
 
-            this.addLogEntry(`✓ Codemagic integration completed for ${codemagicResults.filter(r => r.success).length}/${codemagicResults.length} apps`, 'success');
+            // Log summary
+            const successCount = codemagicResults.filter(r => r.success).length;
+            const totalCount = codemagicResults.length;
+
+            if (successCount === totalCount) {
+                this.addLogEntry(`🎉 Codemagic integration completed successfully for all ${totalCount} apps`, 'success');
+            } else if (successCount > 0) {
+                this.addLogEntry(`⚠️ Codemagic integration partially successful: ${successCount}/${totalCount} apps`, 'warning');
+            } else {
+                this.addLogEntry(`❌ Codemagic integration failed for all apps`, 'error');
+            }
+
             return codemagicResults;
 
         } catch (error) {
-            this.addLogEntry(`✗ Codemagic integration failed: ${error.message}`, 'error');
+            // Handle global integration errors
+            let errorMessage = error.message;
+            if (error.isCorsError || error.message.includes('CORS')) {
+                errorMessage = 'Codemagic API not accessible from localhost due to browser security restrictions';
+            }
+
+            this.addLogEntry(`❌ Codemagic integration failed: ${errorMessage}`, 'error');
             throw error;
         }
     }

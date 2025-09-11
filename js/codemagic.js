@@ -33,8 +33,13 @@ class CodemagicIntegration {
         try {
             this.emit('auth:start', { apiToken: apiToken.substring(0, 8) + '...' });
 
-            // Validate token by fetching applications
-            const response = await fetch(`${this.apiBase}/apps`, {
+            // Validate inputs
+            if (!apiToken || typeof apiToken !== 'string' || apiToken.length < 10) {
+                throw new Error('Invalid API token format. Please provide a valid Codemagic API token.');
+            }
+
+            // Test authentication with a simple API call
+            const response = await this.makeApiRequest('/apps', {
                 method: 'GET',
                 headers: {
                     'x-auth-token': apiToken,
@@ -43,36 +48,89 @@ class CodemagicIntegration {
             });
 
             if (!response.ok) {
+                let errorMessage = `Authentication failed: ${response.status} ${response.statusText}`;
+
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorMessage;
+                } catch (parseError) {
+                    // Use default error message if parsing fails
+                }
+
                 if (response.status === 401) {
                     throw new Error('Invalid API token. Please check your Codemagic API token.');
                 } else if (response.status === 429) {
                     throw new Error('Rate limit exceeded. Please try again later.');
+                } else if (response.status === 0 || response.status === 502) {
+                    throw new Error('Cannot connect to Codemagic API. This may be due to CORS restrictions when running from localhost. Try using the Codemagic dashboard directly.');
                 }
-                throw new Error(`Authentication failed: ${response.status} ${response.statusText}`);
+
+                throw new Error(errorMessage);
             }
 
             // Update rate limit info
             this.updateRateLimit(response);
 
             const data = await response.json();
-            
+
             this.isAuthenticated = true;
             this.apiToken = apiToken;
             this.teamId = teamId;
 
-            this.emit('auth:success', { 
-                apiToken: apiToken.substring(0, 8) + '...', 
+            this.emit('auth:success', {
+                apiToken: apiToken.substring(0, 8) + '...',
                 teamId,
                 appsCount: data.applications ? data.applications.length : 0
             });
-            
+
             return true;
 
         } catch (error) {
             this.isAuthenticated = false;
             this.apiToken = null;
             this.teamId = null;
+
+            // Handle specific error types
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                const corsError = new Error('Cannot connect to Codemagic API due to CORS restrictions. This is expected when running from localhost. The integration will work when deployed to a server or when using the Codemagic dashboard directly.');
+                corsError.isCorsError = true;
+                corsError.userFriendlyMessage = 'Codemagic integration is not available when running from localhost due to browser security restrictions.';
+                corsError.solutions = [
+                    'Deploy your application to a web server (GitHub Pages, Netlify, etc.)',
+                    'Use the Codemagic dashboard directly to create projects',
+                    'Set up a local proxy server to bypass CORS restrictions',
+                    'Use a browser extension to disable CORS (not recommended for production)'
+                ];
+                this.emit('auth:error', { error: corsError });
+                throw corsError;
+            }
+
             this.emit('auth:error', { error });
+            throw error;
+        }
+    }
+
+    // Make API request with proper error handling and CORS detection
+    async makeApiRequest(endpoint, options = {}) {
+        const url = `${this.apiBase}${endpoint}`;
+
+        try {
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                }
+            });
+
+            return response;
+
+        } catch (error) {
+            // Handle network errors and CORS issues
+            if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                console.warn('🚫 CORS Error detected - Codemagic API not accessible from localhost');
+                throw new Error('CORS_ERROR: Cannot access Codemagic API from localhost');
+            }
             throw error;
         }
     }
